@@ -30,18 +30,23 @@ $env:PORT=4000; node server.js
 PerformIQ-AI/
 ├── .gitignore
 ├── README.md
+├── VIVA_NOTES.md           # viva Q&A reference
 ├── backend/
 │   ├── package.json        # npm config, "start" script
-│   ├── server.js           # HTTP server, routing, error handling
+│   ├── server.js           # HTTP server, routing, static files, error handling
 │   ├── studentStore.js     # fs/promises read/write for students.json
-│   ├── events.js           # shared EventEmitter instance
+│   ├── validation.js       # field validation, returns error list
+│   ├── events.js           # shared EventEmitter instance + listeners
 │   ├── students.json       # data file (persisted student records)
 │   └── examples/           # isolated demos, each runnable with node
 │       ├── globals.js          # __dirname, process, globalThis
 │       ├── eventLoop.js        # event loop execution order
 │       ├── streamsBuffers.js   # Buffers, createReadStream, pipe
 │       └── modulesEsm.mjs     # ES modules, top-level await, CJS vs ESM
-└── frontend/               # (Phase 4 — HTML/CSS/JS frontend)
+└── frontend/
+    ├── index.html          # page structure — form, table, detail panel
+    ├── style.css           # CSS design system
+    └── script.js           # Fetch API, DOM, events, async/await
 ```
 
 ---
@@ -185,12 +190,15 @@ node examples/modulesEsm.mjs
 
 ## 3-Minute Demo Script
 
-1. **(0:00)** Open terminal in `backend/`, run `npm start`. Show server running message.
-2. **(0:20)** In a second terminal: `curl http://localhost:3000/` → plain text. `curl http://localhost:3000/api/students` → JSON array of students.
-3. **(0:45)** `curl http://localhost:3000/nope` → 404 JSON. Point out `[request]` logs in server terminal from EventEmitter.
-4. **(1:10)** Open `studentStore.js` — explain `fs/promises`, `path.join`, ENOENT handling, re-throw.
-5. **(1:40)** Open `events.js` — explain EventEmitter: `.on()` registers a listener, `.emit()` triggers it. One shared instance via `require` cache.
-6. **(2:00)** Run `node examples/eventLoop.js` — explain the numbered output and why nextTick fires before Promise.
-7. **(2:20)** Run `node examples/streamsBuffers.js` — show chunks arriving piece by piece, then the full file piped.
-8. **(2:40)** Run `node examples/modulesEsm.mjs` — show top-level await working, explain CJS vs ESM difference.
-9. **(2:55)** Show `node` REPL: `require('path').join('a','b')`. Exit with `.exit`.
+1. **(0:00)** `cd backend && npm start`. Show `Server running at http://localhost:3000`.
+2. **(0:15)** Open browser → `http://localhost:3000`. Page loads with all students. Point out amber rows for attendance < 75%.
+3. **(0:35)** Fill the form, click **Add Student**. New row appears instantly.
+4. **(0:50)** Click **View** → detail panel opens. Click **Edit** → form fills with that student's data. Update and save.
+5. **(1:05)** Click **Delete** → confirm → row disappears. Restart server, reload page → data persists (students.json).
+6. **(1:25)** Open second terminal: `curl http://localhost:3000/api/students` → JSON. `curl -X DELETE http://localhost:3000/api/students` → 405. Point out `[request]` logs from EventEmitter.
+7. **(1:45)** Open `server.js` → explain `parseRoute`, `readBody` (Buffer chunks), `enqueueWrite` (queue).
+8. **(2:00)** Open `studentStore.js` → explain `fs/promises`, `path.join`, ENOENT handling.
+9. **(2:15)** Open `events.js` → explain `.on()` / `.emit()`, single shared instance via `require` cache.
+10. **(2:30)** Run `node examples/eventLoop.js` → explain numbered output order.
+11. **(2:45)** Run `node examples/streamsBuffers.js` → show chunks. Mention this is the same mechanism used in `serveStatic` and `readBody`.
+12. **(2:55)** Open REPL: `node` → `require('path').join('a','b')` → `.exit`.

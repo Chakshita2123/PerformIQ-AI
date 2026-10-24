@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "name": "Aarav Sharma",
+    "attendance": 82,
+    "internalMarks": 24,
+    "assignmentMarks": 17,
+    "studyHours": 18
+  },
+  {
+    "id": 2,
+    "name": "Priya Mehta",
+    "attendance": 68,
+    "internalMarks": 19,
+    "assignmentMarks": 13,
+    "studyHours": 10
+  },
+  {
+    "id": 3,
+    "name": "Rohan Verma",
+    "attendance": 91,
+    "internalMarks": 28,
+    "assignmentMarks": 20,
+    "studyHours": 30
+  }
+]

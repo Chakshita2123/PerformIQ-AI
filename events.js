@@ -25,5 +25,19 @@ appEvents.on('serverError', (err) => {
   console.error(`[error] ${err.message}`);
 });
 
+// Listeners for CRUD events emitted by server.js.
+// Each receives the student object that was created/updated/deleted.
+appEvents.on('studentCreated', (student) => {
+  console.log(`[studentCreated] id=${student.id} name="${student.name}"`);
+});
+
+appEvents.on('studentUpdated', (student) => {
+  console.log(`[studentUpdated] id=${student.id} name="${student.name}"`);
+});
+
+appEvents.on('studentDeleted', (student) => {
+  console.log(`[studentDeleted] id=${student.id} name="${student.name}"`);
+});
+
 // Export the single shared instance.
 module.exports = appEvents;

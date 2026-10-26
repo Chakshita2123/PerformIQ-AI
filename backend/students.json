@@ -22,5 +22,13 @@
     "internalMarks": 28,
     "assignmentMarks": 20,
     "studyHours": 30
+  },
+  {
+    "id": 4,
+    "name": "Rahul Sharma",
+    "attendance": 85,
+    "internalMarks": 20,
+    "assignmentMarks": 15,
+    "studyHours": 15
   }
 ]

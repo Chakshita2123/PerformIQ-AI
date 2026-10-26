@@ -4,7 +4,7 @@
 // No Express or any npm package is used.
 
 const http = require('http');
-const fs   = require('fs');           // for createReadStream (static file serving)
+const fs = require('fs');           // for createReadStream (static file serving)
 const path = require('path');         // for path.join, resolve, extname, sep
 const { readStudents, writeStudents } = require('./studentStore');
 const appEvents = require('./events');
@@ -19,8 +19,8 @@ const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 // Maps file extensions to the correct HTTP Content-Type header value.
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
-  '.css':  'text/css; charset=utf-8',
-  '.js':   'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
 };
 
 // ─── sendJson ────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ let writeQueue = Promise.resolve();
 
 function enqueueWrite(operation) {
   const result = writeQueue.then(() => operation());
-  writeQueue = result.catch(() => {}); // keep queue alive even if op throws
+  writeQueue = result.catch(() => { }); // keep queue alive even if op throws
   return result;
 }
 
@@ -134,13 +134,17 @@ function enqueueWrite(operation) {
 function parseRoute(url) {
   const urlPath = url.split('?')[0]; // strip query string
 
-  if (urlPath === '/')              return { route: 'root' };
-  if (urlPath === '/style.css')     return { route: 'static', file: 'style.css' };
-  if (urlPath === '/script.js')     return { route: 'static', file: 'script.js' };
-  if (urlPath === '/api/students')  return { route: 'students' };
+  if (urlPath === '/') return { route: 'root' };
+  if (urlPath === '/api/students') return { route: 'students' };
 
   const match = urlPath.match(/^\/api\/students\/(\d+)$/);
   if (match) return { route: 'student', id: Number(match[1]) };
+
+  // Serve frontend static files (.html, .css, .js)
+  const ext = path.extname(urlPath);
+  if (['.html', '.css', '.js'].includes(ext)) {
+    return { route: 'static', file: urlPath.replace(/^\//, '') };
+  }
 
   return { route: 'unknown' };
 }
@@ -190,9 +194,7 @@ const server = http.createServer(async (req, res) => {
 
         const newStudent = await enqueueWrite(async () => {
           const students = await readStudents();
-          const nextId = students.length > 0
-            ? Math.max(...students.map(s => s.id)) + 1
-            : 1;
+          const nextId = students.length ? Math.max(...students.map(s => s.id)) + 1 : 1;
           const student = {
             id: nextId,
             name: body.name.trim(),

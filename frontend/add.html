@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="PerformIQ AI — Add or edit a student record." />
+  <title>Add Student — PerformIQ AI</title>
+  <!-- Pure offline CSS — no CDNs or external fonts -->
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <!-- Skip link for keyboard accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- ── Site Header ───────────────────────────────────────────────────────── -->
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 3h18v2H3V3zm0 4h18v2H3V7zm0 4h12v2H3v-2zm0 4h12v2H3v-2zm14-1l4 4-4 4v-3h-3v-2h3v-3z"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>PerformIQ AI</h1>
+          <p class="tagline">Student Performance Analytics Platform</p>
+        </div>
+      </div>
+
+      <!-- Navigation populated by ui.js -->
+      <div id="site-nav-wrap" class="site-nav-wrap"></div>
+
+      <!-- Live clock -->
+      <span class="header-meta" id="header-clock" aria-live="off"></span>
+    </div>
+  </header>
+
+  <!-- ── Main Content ─────────────────────────────────────────────────────── -->
+  <main class="page-container-narrow" id="main-content">
+
+    <!-- Loading state for edit mode fetching -->
+    <div id="loading-state" class="status-msg" hidden aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span> Loading student details…
+    </div>
+
+    <!-- Student not found state (for invalid ?id=NUMBER) -->
+    <div id="not-found-state" class="card empty-state" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+      </svg>
+      <strong>Student Not Found</strong>
+      <p id="not-found-text">The requested student ID does not exist or has been removed.</p>
+      <div style="margin-top: var(--sp-4); display: flex; gap: var(--sp-3); justify-content: center;">
+        <a href="students.html" class="btn btn-primary">Back to Students Directory</a>
+        <a href="add.html" class="btn btn-ghost">Add New Student</a>
+      </div>
+    </div>
+
+    <!-- Add / Edit Form Card -->
+    <section class="card" id="form-card" aria-labelledby="form-heading">
+      <div class="form-title-bar">
+        <div class="form-title-icon" id="form-title-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" id="form-icon-svg"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        </div>
+        <div>
+          <h2 id="form-heading">Add Student</h2>
+          <p id="form-subheading" style="font-size: var(--fs-xs); color: var(--c-muted); margin-top: 2px;">Enter student details to add a new performance record.</p>
+        </div>
+      </div>
+
+      <form id="student-form" novalidate>
+
+        <!-- Full Name -->
+        <div class="field-group">
+          <label for="input-name">Full Name</label>
+          <input
+            type="text"
+            id="input-name"
+            name="name"
+            placeholder="e.g. Aarav Sharma"
+            autocomplete="off"
+            aria-describedby="err-name"
+            required
+          />
+          <span class="field-hint">Required non-empty text</span>
+          <span class="field-err" id="err-name" role="alert"></span>
+        </div>
+
+        <!-- Attendance & Study Hours -->
+        <div class="field-row">
+          <div class="field-group">
+            <label for="input-attendance">Attendance (%)</label>
+            <input
+              type="number"
+              id="input-attendance"
+              name="attendance"
+              min="0"
+              max="100"
+              placeholder="0 – 100"
+              aria-describedby="err-attendance"
+              required
+            />
+            <span class="field-hint">Range: 0 – 100</span>
+            <span class="field-err" id="err-attendance" role="alert"></span>
+          </div>
+
+          <div class="field-group">
+            <label for="input-study">Study Hours / week</label>
+            <input
+              type="number"
+              id="input-study"
+              name="studyHours"
+              min="0"
+              max="40"
+              placeholder="0 – 40"
+              aria-describedby="err-study"
+              required
+            />
+            <span class="field-hint">Range: 0 – 40</span>
+            <span class="field-err" id="err-study" role="alert"></span>
+          </div>
+        </div>
+
+        <!-- Internal & Assignment Marks -->
+        <div class="field-row">
+          <div class="field-group">
+            <label for="input-internal">Internal Marks</label>
+            <input
+              type="number"
+              id="input-internal"
+              name="internalMarks"
+              min="0"
+              max="30"
+              placeholder="0 – 30"
+              aria-describedby="err-internal"
+              required
+            />
+            <span class="field-hint">Range: 0 – 30</span>
+            <span class="field-err" id="err-internal" role="alert"></span>
+          </div>
+
+          <div class="field-group">
+            <label for="input-assignment">Assignment Marks</label>
+            <input
+              type="number"
+              id="input-assignment"
+              name="assignmentMarks"
+              min="0"
+              max="20"
+              placeholder="0 – 20"
+              aria-describedby="err-assignment"
+              required
+            />
+            <span class="field-hint">Range: 0 – 20</span>
+            <span class="field-err" id="err-assignment" role="alert"></span>
+          </div>
+        </div>
+
+        <!-- Server-side or generic error box -->
+        <div id="form-errors" class="error-box" hidden aria-live="polite"></div>
+
+        <!-- Success feedback callout -->
+        <div id="success-box" class="card" style="background: var(--c-ok-lt); border-color: var(--c-ok-bdr); margin-top: var(--sp-4); padding: var(--sp-4);" hidden>
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap: var(--sp-3);">
+            <div style="display:flex; align-items:center; gap: var(--sp-2); color: var(--c-ok);">
+              <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              <strong id="success-msg">Student record saved successfully!</strong>
+            </div>
+            <a href="students.html" class="btn btn-sm btn-primary">View in Students List →</a>
+          </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions" style="margin-top: var(--sp-6);">
+          <button type="submit" id="submit-btn" class="btn btn-primary">Add Student</button>
+          <a href="students.html" id="cancel-link" class="btn btn-ghost">Cancel</a>
+        </div>
+
+      </form>
+    </section>
+
+  </main>
+
+  <!-- Toast notifications container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- ES module script -->
+  <script type="module" src="/add.js"></script>
+</body>
+</html>

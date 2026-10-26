@@ -3,136 +3,226 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="PerformIQ AI — Track and manage student attendance, marks, and study hours in one place." />
-  <title>PerformIQ AI — Student Performance Analytics</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <meta name="description" content="PerformIQ AI — Student Performance Analytics Platform Dashboard." />
+  <title>Dashboard — PerformIQ AI</title>
+  <!-- Pure offline CSS — no CDNs or external fonts -->
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
 
-  <!-- ── Header ─────────────────────────────────────────────────────────── -->
-  <header class="site-header">
+  <!-- Skip link for keyboard accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- ── Site Header ───────────────────────────────────────────────────────── -->
+  <header class="site-header" role="banner">
     <div class="header-inner">
       <div class="logo">
-        <span class="logo-icon">📊</span>
-        <h1>PerformIQ AI</h1>
+        <div class="logo-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 3h18v2H3V3zm0 4h18v2H3V7zm0 4h12v2H3v-2zm0 4h12v2H3v-2zm14-1l4 4-4 4v-3h-3v-2h3v-3z"/>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>PerformIQ AI</h1>
+          <p class="tagline">Student Performance Analytics Platform</p>
+        </div>
       </div>
-      <p class="tagline">Student Performance Analytics Platform</p>
+
+      <!-- Navigation populated by ui.js -->
+      <div id="site-nav-wrap" class="site-nav-wrap"></div>
+
+      <!-- Live clock -->
+      <span class="header-meta" id="header-clock" aria-live="off"></span>
     </div>
   </header>
 
-  <main class="main-grid">
+  <!-- ── Main Dashboard Content ───────────────────────────────────────────── -->
+  <main class="page-container" id="main-content">
 
-    <!-- ── Left column: Form ───────────────────────────────────────────── -->
-    <section class="card" id="form-section" aria-labelledby="form-heading">
-      <h2 id="form-heading">Add Student</h2>
+    <div class="page-title-row">
+      <div>
+        <h2 class="page-title">Executive Dashboard</h2>
+        <p class="page-subtitle">Real-time overview of student academic performance and attendance health.</p>
+      </div>
+      <div>
+        <a href="add.html" class="btn btn-primary" id="dashboard-add-btn">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;fill:currentColor;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          Add Student
+        </a>
+      </div>
+    </div>
 
-      <form id="student-form" novalidate>
+    <!-- Loading state -->
+    <div id="loading-state" class="status-msg" hidden aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span> Calculating analytics…
+    </div>
 
-        <div class="field-group">
-          <label for="input-name">Full Name</label>
-          <input
-            type="text"
-            id="input-name"
-            name="name"
-            placeholder="e.g. Aarav Sharma"
-            autocomplete="off"
-          />
+    <!-- Error state -->
+    <div id="error-state" hidden aria-live="polite"></div>
+
+    <!-- Global Empty state -->
+    <div id="empty-state" class="card empty-state" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20 6h-2.18c.07-.44.18-.87.18-1.3C18 2.12 15.88 0 13.3 0c-1.48 0-2.67.73-3.43 1.84L9 3 8.13 1.84C7.38.73 6.19 0 4.7 0 2.12 0 0 2.12 0 4.7c0 .44.11.87.18 1.3H0v2h20V6zm-7.3-4C14 2 16 4 16 6H8c0-2 2-4 4.7-4zM4 10v12l8-3 8 3V10H4zm8 9.04-6-2.25V12h12v4.79l-6 2.25z"/>
+      </svg>
+      <strong>No students yet</strong>
+      <p>There are no student records to analyze. Start by adding your first student.</p>
+      <a href="add.html" class="btn btn-primary" style="margin-top: var(--sp-4);">Add First Student</a>
+    </div>
+
+    <!-- Dashboard Data Section (hidden during loading/error/empty) -->
+    <div id="dashboard-content">
+
+      <!-- ── Summary Statistics Row (5 cards) ──────────────────────────────── -->
+      <div class="summary-row" role="region" aria-label="Key Performance Indicators" style="margin-top: 0; padding: 0;">
+
+        <!-- 1. Total Students -->
+        <div class="stat-card" id="card-total">
+          <div class="stat-icon teal" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label">Total Students</div>
+            <div class="stat-value" id="stat-total-val">—</div>
+            <div class="stat-sub">enrolled</div>
+          </div>
         </div>
 
-        <div class="field-row">
-          <div class="field-group">
-            <label for="input-attendance">Attendance (0–100 %)</label>
-            <input type="number" id="input-attendance" name="attendance" min="0" max="100" placeholder="0 – 100" />
+        <!-- 2. Average Attendance -->
+        <div class="stat-card" id="card-attendance">
+          <div class="stat-icon emerald" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zm-7-2l-4-4 1.41-1.41L12 14.17l5.59-5.58L19 10l-7 7z"/></svg>
           </div>
-          <div class="field-group">
-            <label for="input-study">Study Hours/week (0–40)</label>
-            <input type="number" id="input-study" name="studyHours" min="0" max="40" placeholder="0 – 40" />
-          </div>
-        </div>
-
-        <div class="field-row">
-          <div class="field-group">
-            <label for="input-internal">Internal Marks (0–30)</label>
-            <input type="number" id="input-internal" name="internalMarks" min="0" max="30" placeholder="0 – 30" />
-          </div>
-          <div class="field-group">
-            <label for="input-assignment">Assignment Marks (0–20)</label>
-            <input type="number" id="input-assignment" name="assignmentMarks" min="0" max="20" placeholder="0 – 20" />
+          <div class="stat-body">
+            <div class="stat-label">Avg Attendance</div>
+            <div class="stat-value" id="stat-attendance-val">—</div>
+            <div class="stat-sub">class overall</div>
           </div>
         </div>
 
-        <!-- Inline validation errors appear here -->
-        <div id="form-errors" class="error-box" hidden aria-live="polite"></div>
-
-        <div class="form-actions">
-          <button type="submit" id="submit-btn" class="btn btn-primary">Add Student</button>
-          <button type="button" id="cancel-btn" class="btn btn-ghost" hidden>Cancel Edit</button>
+        <!-- 3. Attendance Below 75% -->
+        <div class="stat-card" id="card-low">
+          <div class="stat-icon amber" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label">Below 75% Att.</div>
+            <div class="stat-value" id="stat-low-val">—</div>
+            <div class="stat-sub">needs attention</div>
+          </div>
         </div>
 
-      </form>
-    </section>
+        <!-- 4. Average Internal Marks -->
+        <div class="stat-card" id="card-internal">
+          <div class="stat-icon indigo" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label">Avg Internal</div>
+            <div class="stat-value" id="stat-internal-val">—</div>
+            <div class="stat-sub">out of 30</div>
+          </div>
+        </div>
 
-    <!-- ── Right column: Table + Detail ────────────────────────────────── -->
-    <div class="right-col">
+        <!-- 5. Average Assignment Marks -->
+        <div class="stat-card" id="card-assignment">
+          <div class="stat-icon teal" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label">Avg Assignment</div>
+            <div class="stat-value" id="stat-assignment-val">—</div>
+            <div class="stat-sub">out of 20</div>
+          </div>
+        </div>
 
-      <!-- Student table -->
-      <section class="card" id="students-section" aria-labelledby="table-heading">
+      </div>
+
+      <!-- ── Attendance Distribution Section (CSS Bar Chart) ────────────────── -->
+      <section class="card" style="margin-top: var(--sp-6);" aria-labelledby="dist-heading">
         <div class="section-header">
-          <h2 id="table-heading">All Students</h2>
-          <span id="student-count" class="badge">0 students</span>
+          <div>
+            <h3 id="dist-heading">Attendance Distribution</h3>
+            <p style="font-size: var(--fs-xs); color: var(--c-muted); margin-top: 2px;">Visual breakdown across attendance tiers.</p>
+          </div>
+          <span class="badge" id="dist-total-badge">0 total</span>
         </div>
 
-        <!-- Loading indicator -->
-        <div id="loading-state" class="status-msg" hidden>
-          <span class="spinner" aria-hidden="true"></span> Loading students…
+        <!-- Plain CSS Distribution Bar -->
+        <div class="dist-bars" id="dist-bars" role="img" aria-label="Attendance distribution bar chart">
+          <div class="dist-seg low" id="dist-seg-low" style="width: 0%;" title="Below 75%"></div>
+          <div class="dist-seg warn" id="dist-seg-mid" style="width: 0%;" title="75% – 89%"></div>
+          <div class="dist-seg ok" id="dist-seg-high" style="width: 0%;" title="90% and above"></div>
         </div>
 
-        <!-- Fetch/server error -->
-        <div id="fetch-error" class="error-box" hidden aria-live="polite"></div>
-
-        <!-- Empty state -->
-        <div id="empty-state" class="status-msg empty-state" hidden>
-          No students yet. Add one using the form.
-        </div>
-
-        <div id="table-wrapper" hidden>
-          <table id="students-table" aria-label="Student records">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Attendance</th>
-                <th>Internal</th>
-                <th>Assignment</th>
-                <th>Study h/w</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="students-body">
-              <!-- Rows inserted by script.js -->
-            </tbody>
-          </table>
+        <!-- Legend -->
+        <div class="dist-legend">
+          <div class="dist-legend-item">
+            <span class="dist-dot low"></span>
+            <span>Below 75% (Critical): <strong id="dist-count-low">0</strong> (<span id="dist-pct-low">0%</span>)</span>
+          </div>
+          <div class="dist-legend-item">
+            <span class="dist-dot warn"></span>
+            <span>75% – 89% (Good): <strong id="dist-count-mid">0</strong> (<span id="dist-pct-mid">0%</span>)</span>
+          </div>
+          <div class="dist-legend-item">
+            <span class="dist-dot ok"></span>
+            <span>90% &amp; Above (Excellent): <strong id="dist-count-high">0</strong> (<span id="dist-pct-high">0%</span>)</span>
+          </div>
         </div>
       </section>
 
-      <!-- Student detail panel (hidden until "View" is clicked) -->
-      <section class="card" id="detail-panel" hidden aria-labelledby="detail-heading">
-        <div class="section-header">
-          <h2 id="detail-heading">Student Details</h2>
-          <button id="close-detail-btn" class="btn btn-ghost btn-sm" aria-label="Close detail panel">✕ Close</button>
-        </div>
-        <dl id="detail-content" class="detail-grid">
-          <!-- Filled by script.js -->
-        </dl>
-      </section>
+      <!-- ── Lower Grid: Needs Attention + Recently Added ───────────────────── -->
+      <div class="dashboard-grid">
 
-    </div><!-- /.right-col -->
+        <!-- Needs Attention List (< 75% attendance) -->
+        <section class="card" aria-labelledby="attention-heading">
+          <div class="section-header">
+            <div>
+              <h3 id="attention-heading">Needs Attention</h3>
+              <p style="font-size: var(--fs-xs); color: var(--c-muted); margin-top: 2px;">Students below 75% attendance threshold (lowest first, max 5).</p>
+            </div>
+            <span class="badge" id="attention-badge" style="background: var(--c-warn-lt); color: var(--c-warn);">0 students</span>
+          </div>
+
+          <div id="attention-empty" class="status-msg" style="text-align: left; padding: var(--sp-4);" hidden>
+            Great news! No students currently fall below the 75% attendance mark.
+          </div>
+
+          <ul class="dashboard-list" id="attention-list">
+            <!-- Populated via dashboard.js -->
+          </ul>
+        </section>
+
+        <!-- Recently Added List (last 3 students by ID) -->
+        <section class="card" aria-labelledby="recent-heading">
+          <div class="section-header">
+            <div>
+              <h3 id="recent-heading">Recently Added Students</h3>
+              <p style="font-size: var(--fs-xs); color: var(--c-muted); margin-top: 2px;">The latest 3 student profiles created.</p>
+            </div>
+            <a href="students.html" class="btn btn-sm btn-ghost">View All →</a>
+          </div>
+
+          <div id="recent-empty" class="status-msg" style="text-align: left; padding: var(--sp-4);" hidden>
+            No students recorded yet.
+          </div>
+
+          <ul class="dashboard-list" id="recent-list">
+            <!-- Populated via dashboard.js -->
+          </ul>
+        </section>
+
+      </div>
+
+    </div><!-- /#dashboard-content -->
+
   </main>
 
-  <!-- script.js is loaded with defer: it runs after the HTML is fully parsed -->
-  <script src="/script.js" defer></script>
+  <!-- Toast notifications container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- ES module script -->
+  <script type="module" src="/dashboard.js"></script>
 </body>
 </html>

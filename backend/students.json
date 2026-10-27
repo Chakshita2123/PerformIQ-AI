@@ -24,11 +24,27 @@
     "studyHours": 30
   },
   {
-    "id": 4,
+    "id": 5,
     "name": "Rahul Sharma",
     "attendance": 85,
     "internalMarks": 20,
     "assignmentMarks": 15,
-    "studyHours": 15
+    "studyHours": 25
+  },
+  {
+    "id": 6,
+    "name": "Ashok",
+    "attendance": 75,
+    "internalMarks": 15,
+    "assignmentMarks": 15,
+    "studyHours": 20
+  },
+  {
+    "id": 7,
+    "name": "Kashvi",
+    "attendance": 100,
+    "internalMarks": 25,
+    "assignmentMarks": 18,
+    "studyHours": 35
   }
 ]

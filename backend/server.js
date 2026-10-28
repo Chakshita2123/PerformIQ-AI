@@ -10,7 +10,7 @@ const { readStudents, writeStudents } = require('./studentStore');
 const appEvents = require('./events');
 const { validateStudent } = require('./validation');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;     // uses an environment variable if set, otherwise 3000
 
 // Absolute path to the frontend/ folder (one level up from backend/).
 // path.join(__dirname, '..', 'frontend') builds the correct path on Windows.
@@ -25,12 +25,14 @@ const MIME_TYPES = {
 
 // ─── sendJson ────────────────────────────────────────────────────────────────
 // Helper to avoid repeating writeHead + JSON.stringify + end everywhere.
+// sets the status and JSON header, then sends JSON.stringify(data
 function sendJson(res, status, data) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(data));
 }
 
 // ─── serveStatic ─────────────────────────────────────────────────────────────
+// returns a promise
 // Reads a file from the frontend/ directory and pipes it to the HTTP response.
 // Uses fs.createReadStream (a readable stream) — data flows in chunks, not all at once.
 //
@@ -52,7 +54,7 @@ function serveStatic(res, filename) {
     const ext = path.extname(fullPath);                        // e.g. '.html'
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    const stream = fs.createReadStream(fullPath);
+    const stream = fs.createReadStream(fullPath);  //  sends the file in chunks instead of loading it all into memory
 
     // 'error' fires if the file cannot be opened (e.g. it doesn't exist).
     stream.on('error', (err) => {
@@ -117,6 +119,7 @@ function readBody(req, maxBytes = 100 * 1024) {
 }
 
 // ─── Write queue ─────────────────────────────────────────────────────────────
+// Each write operation runs only after the previous one finishes
 // Prevents race conditions: each write-to-file operation waits for the
 // previous one to finish before starting. Like a single-lane bridge.
 let writeQueue = Promise.resolve();

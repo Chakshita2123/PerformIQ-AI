@@ -14,6 +14,7 @@ const appEvents = new EventEmitter();
 // Listener for 'request' event.
 // server.js emits: appEvents.emit('request', method, url)
 // This listener receives (method, url) as arguments and logs them.
+//  logs every incoming request.
 appEvents.on('request', (method, url) => {
   console.log(`[request] ${method} ${url}`);
 });
@@ -21,12 +22,14 @@ appEvents.on('request', (method, url) => {
 // Listener for 'serverError' event.
 // server.js emits: appEvents.emit('serverError', err)
 // err is a JavaScript Error object; err.message is the human-readable text.
+// logs errors with console.error
 appEvents.on('serverError', (err) => {
   console.error(`[error] ${err.message}`);
 });
 
 // Listeners for CRUD events emitted by server.js.
 // Each receives the student object that was created/updated/deleted.
+// log the student's id and name
 appEvents.on('studentCreated', (student) => {
   console.log(`[studentCreated] id=${student.id} name="${student.name}"`);
 });

@@ -8,6 +8,7 @@ const path = require('path');      // path helps build file paths safely across 
 
 // __dirname is the folder where THIS file lives (backend/).
 // path.join builds the correct path on Windows AND Linux: backend/students.json
+// builds a path that works on both Windows and Linux
 const DATA_FILE = path.join(__dirname, 'students.json');
 
 // readStudents: reads the file and returns an array of student objects.

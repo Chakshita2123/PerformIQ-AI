@@ -1,4 +1,4 @@
-# PerformIQ AI — Backend API
+# PerformIQ AI — Full-Stack Project
 
 ## What is PerformIQ?
 
@@ -10,164 +10,132 @@ interventions (mentoring, extra practice, etc.) to students who are at risk of f
 
 ---
 
-## Tech Stack
+## Tech Stack & Architecture
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js v22 |
-| Web framework | Express.js |
-| Database | MongoDB Atlas (Mongoose ODM) |
-| Authentication | JWT (jsonwebtoken) + bcryptjs |
-| Validation | express-validator |
-| Security | helmet, cors, express-rate-limit |
-| Logging | morgan |
+PerformIQ AI uses a microservices architecture:
+
+| Component | Technology | Responsibility |
+|---|---|---|
+| **Backend API** | Node.js v22, Express.js, MongoDB Atlas (Mongoose) | Authentication, Student CRUD, Assessments, Interventions, Aggregation Dashboard |
+| **ML Service** | Python 3.13, FastAPI, Uvicorn, scikit-learn, pandas | Preprocessing pipeline & HistGradientBoosting score prediction model |
+| **Frontend** | React (Vite), Tailwind CSS (Phase 5) | User interface for teachers and administrators |
+
+---
+
+## Pinned ML Environment
+
+The model `ml-service/performiq_model.joblib` is a trained scikit-learn `Pipeline` (`ColumnTransformer` + `HistGradientBoostingRegressor`).
+The environment is pinned in `ml-service/requirements.txt`:
+
+```txt
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+pydantic==2.13.4
+scikit-learn==1.9.0
+pandas==3.0.5
+numpy==2.5.1
+joblib==1.5.3
+```
 
 ---
 
 ## Project Structure
 
 ```
-backend/
-├── server.js                        ← Entry point; mounts all route handlers & error middleware
-├── .env                             ← Secrets (never committed)
-├── .env.example                     ← Template — copy this to .env
-├── test-phase1.js                   ← Phase 1 endpoint test suite
-├── test-phase2.js                   ← Phase 2 endpoint test suite
-└── src/
-    ├── config/
-    │   └── db.js                    ← Mongoose.connect()
-    ├── models/
-    │   ├── User.js                  ← Teachers and admin (passwordHash select: false)
-    │   ├── Student.js               ← One row per student; mirrors CSV columns + cached risk fields
-    │   ├── Assessment.js            ← Scored tests/quizzes per student
-    │   ├── Prediction.js            ← ML prediction records & recommendations
-    │   ├── Intervention.js          ← Teacher-assigned corrective actions
-    │   └── OuladRecord.js           ← Pre-computed Module 3 data
-    ├── middleware/
-    │   ├── auth.js                  ← JWT protect + requireRole
-    │   └── errorHandler.js          ← Centralised error responses
-    ├── controllers/
-    │   ├── authController.js        ← register, login, me
-    │   ├── studentController.js     ← Full CRUD + pagination/search/filter/sort
-    │   ├── assessmentController.js  ← Assessment creation & listing
-    │   ├── predictionController.js  ← Predict score, store risk & recommendations
-    │   ├── interventionController.js← Interventions CRUD & before/after impact calculation
-    │   └── dashboardController.js   ← MongoDB aggregation pipeline summary
-    ├── routes/
-    │   ├── authRoutes.js            ← Auth endpoints with rate-limiting
-    │   ├── studentRoutes.js         ← Student CRUD routes
-    │   ├── assessmentRoutes.js      ← /api/students/:studentId/assessments (mergeParams)
-    │   ├── predictionRoutes.js      ← /api/students/:studentId/predict & /api/predictions
-    │   ├── interventionRoutes.js    ← /api/interventions & /api/students/:studentId/interventions
-    │   └── dashboardRoutes.js       ← /api/dashboard/summary
-    └── utils/
-        ├── recommendations.js       ← Rule-based recommendations (11 rules, max 4 returned)
-        └── scopeCheck.js            ← Teacher-scoping verification helper & risk-level mapper
+PerformIQ-AI/
+├── backend/
+│   ├── server.js                        ← Express entry point & route mounting
+│   ├── .env                             ← Secrets (never committed)
+│   ├── .env.example                     ← Template — copy to .env
+│   ├── test-phase1.js                   ← Phase 1 test suite (Self-cleaning)
+│   ├── test-phase2.js                   ← Phase 2 & 3 test suite (Self-cleaning)
+│   ├── scripts/
+│   │   ├── run-tests.js                 ← Cross-platform test runner (PowerShell/Bash)
+│   │   └── cleanTestData.js             ← Strict cleanup tool (never touches real data)
+│   └── src/
+│       ├── config/db.js                 ← MongoDB connection (with test DB isolation)
+│       ├── models/                      ← User, Student, Assessment, Prediction, Intervention, OuladRecord
+│       ├── middleware/                  ← auth (protect, requireRole), errorHandler
+│       ├── controllers/                 ← auth, student, assessment, prediction, intervention, dashboard
+│       ├── routes/                      ← auth, student, assessment, prediction, intervention, dashboard
+│       └── utils/                       ← recommendations, scopeCheck
+├── ml-service/
+│   ├── main.py                          ← FastAPI prediction server (GET /health, POST /predict)
+│   ├── performiq_model.joblib           ← Saved scikit-learn pipeline
+│   ├── requirements.txt                 ← Pinned dependency versions
+│   └── venv/                            ← Python virtual environment
+├── data/                                ← CSV datasets (do not modify)
+├── notebooks/                           ← ML training notebooks (do not modify)
+├── README.md                            ← Project documentation
+├── TESTS.md                             ← API testing guide & curl commands
+└── VIVA_NOTES.md                        ← Viva preparation & technical concepts
 ```
 
 ---
 
-## Data Notice — Real vs Simulated
+## How to Start Both Servers
 
-| Data | Status |
-|---|---|
-| `data/final_student_exam_performance.csv` | **Real dataset** — used for ML training |
-| `data/performiq_oulad_at_risk.csv` | **Real dataset** — OULAD pre-computed predictions |
-| Any student/assessment/intervention records with `isSimulated: true` | **Simulated** — created by seed script for demo purposes |
+### 1. Start the FastAPI ML Service (Port 8000)
+```powershell
+# From the project root:
+cd ml-service
 
----
+# Activate virtual environment:
+# On Windows PowerShell:
+.\venv\Scripts\Activate.ps1
+# On Linux / macOS:
+source venv/bin/activate
 
-## Setup
+# Start Uvicorn server:
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+Health check: `http://127.0.0.1:8000/health` → `{"status": "ok", "service": "PerformIQ ML Service", "model_loaded": true}`
 
-### 1. Prerequisites
-- Node.js ≥ 18
-- A MongoDB Atlas account (free tier is fine)
-
-### 2. Install dependencies
-```bash
+### 2. Start the Express Backend API (Port 5000)
+```powershell
+# Open a second terminal window:
 cd backend
+
+# Install dependencies if not already done:
 npm install
-```
 
-### 3. Configure environment
-```bash
-cp .env.example .env
-# Edit .env with your MONGO_URI and JWT_SECRET
+# Start development server:
+npm run dev
+# Or for production:
+npm start
 ```
+Health check: `http://localhost:5000/api/health`
 
-### 4. Start the server
-```bash
-npm start          # production
-npm run dev        # development with nodemon (auto-restart)
+---
+
+## Running the Automated Test Suite
+
+The test suite runs with **complete database isolation** against `performiq_test` on Windows PowerShell, Command Prompt, and Bash:
+
+```powershell
+cd backend
+npm test
 ```
-
-The server starts on `http://localhost:5000`.
+This runs `scripts/run-tests.js`, which guarantees `NODE_ENV=test`, verifies the connection to `performiq_test`, executes all Phase 1, 2, and 3 tests, and cleans up after itself.
 
 ---
 
 ## API Overview
 
-All responses follow the shape:
-```json
-{ "success": true|false, "data": {...}, "message": "..." }
-```
+### ML Service (FastAPI — Port 8000)
+- `GET /health` — Service status and model readiness.
+- `POST /predict` — Accepts JSON with student feature columns, imputes missing values, and returns `{"success": true, "predicted_score": 65.59}`.
 
-### 1. Auth Endpoints
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/api/auth/register` | Public | Create a teacher account (role locked to teacher) |
-| POST | `/api/auth/login` | Public | Obtain a JWT token |
-| GET | `/api/auth/me` | Bearer token | Return authenticated user info |
-
-### 2. Student Endpoints
-
-| Method | Path | Auth | Roles | Description |
-|---|---|---|---|---|
-| GET | `/api/students` | Bearer | admin, teacher | List students (paginated, filtered, sorted) |
-| POST | `/api/students` | Bearer | admin, teacher | Create student (teacher auto-assigned) |
-| GET | `/api/students/:id` | Bearer | admin, teacher | Get student details |
-| PUT | `/api/students/:id` | Bearer | admin, teacher | Update student fields |
-| DELETE | `/api/students/:id` | Bearer | **admin only** | Delete student record |
-
-### 3. Assessment Endpoints
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/api/students/:studentId/assessments` | Bearer | Log an assessment (Quiz, Assignment, Midterm, etc.) |
-| GET | `/api/students/:studentId/assessments` | Bearer | List all assessments for a student (oldest first) |
-
-### 4. Prediction Endpoints
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/api/students/:studentId/predict` | Bearer | Record prediction, evaluate risk, generate recommendations, & update student record |
-| GET | `/api/students/:studentId/predictions` | Bearer | Get all predictions for a student (newest first) |
-| GET | `/api/predictions?risk=High` | Bearer | List predictions across students (scoped to teacher) |
-
-### 5. Intervention & Impact Endpoints
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/api/interventions` | Bearer | Assign an intervention (Mentoring, Extra Practice, etc.) |
-| GET | `/api/students/:studentId/interventions` | Bearer | List interventions for a specific student |
-| PATCH | `/api/interventions/:id` | Bearer | Update intervention status (`planned`, `ongoing`, `completed`), notes, outcome |
-| GET | `/api/interventions/:id/impact` | Bearer | Calculate before vs after assessment score averages & verdict |
-
-### 6. Dashboard Endpoints
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/api/dashboard/summary` | Bearer | Aggregated metrics: students by risk, average score, intervention counts, top recommendations |
-
----
-
-## Role & Scoping Rules
-
-- **admin** — sees all students, can assign/reassign teachers, can delete students, views global dashboard metrics
-- **teacher** — sees **only** students where `assignedTeacher == their own ID`. Teacher scoping is enforced across:
-  - Student listings and detail lookups
-  - Assessment logs and reads
-  - Prediction requests and history
-  - Intervention assignments and updates
-  - Dashboard statistics (aggregates only their assigned students)
+### Backend API (Express — Port 5000)
+- **Auth**: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
+- **Students**: `GET /api/students`, `POST /api/students`, `GET /api/students/:id`, `PUT /api/students/:id`, `DELETE /api/students/:id`
+- **Assessments**: `POST /api/students/:id/assessments`, `GET /api/students/:id/assessments`
+- **Predictions**:
+  - `POST /api/students/:id/predict` — Calls ML service via HTTP; clips score; derives risk level (`High`, `Medium`, `Low`); generates rule-based recommendations; updates `Student` document.
+  - *Admin override*: Admins can pass `{ "predictedScore": 55 }` for manual overrides (`source = 'manual'`).
+  - *503 Fallback*: If ML service is down or unreachable, returns HTTP `503 Service Unavailable`.
+  - `GET /api/students/:id/predictions` — Prediction history for a student.
+  - `GET /api/predictions?risk=High` — Scoped list of high-risk students.
+- **Interventions**: `POST /api/interventions`, `GET /api/students/:id/interventions`, `PATCH /api/interventions/:id`
+- **Impact Tracking**: `GET /api/interventions/:id/impact` — Before vs after score delta & verdict (`improved`, `declined`, `no clear change`, `insufficient data`).
+- **Dashboard**: `GET /api/dashboard/summary` — Aggregation pipeline for student counts by risk level, average score, intervention statuses, and top 5 recommendation reasons (scoped to teacher).

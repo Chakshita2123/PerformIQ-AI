@@ -62,9 +62,15 @@ app.use('/api/students/:studentId/interventions', interventionStudentRouter);
 // Dashboard
 app.use('/api/dashboard', dashboardRoutes);
 
-// Health check
+// Health check — returns running status, connected database, and environment
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'PerformIQ API is running' });
+  const mongoose = require('mongoose');
+  res.json({
+    success: true,
+    message: 'PerformIQ API is running',
+    database: mongoose.connection.name,
+    environment: process.env.NODE_ENV || 'development',
+  });
 });
 
 // 404 handler

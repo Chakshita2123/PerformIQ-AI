@@ -30,6 +30,11 @@ const predictionSchema = new mongoose.Schema(
       enum: ['module1', 'manual'],
       default: 'module1',
     },
+    missingFieldsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true }
 );

@@ -54,10 +54,12 @@ async function run() {
   let token, teacherId, studentId;
 
   // ── 1. Health ──────────────────────────────────────────────────────────────
-  console.log('【1】 Health check');
+  console.log('【1】 Health check & Database isolation verification');
   const h = await request('GET', '/api/health');
   check('200 OK',        h.status === 200,       h.status);
   check('success: true', h.body.success === true, h.body);
+  check('connected to performiq_test', h.body.database === 'performiq_test', h.body.database);
+  console.log(`  ℹ Verified database: ${h.body.database} (Environment: ${h.body.environment})`);
 
   // ── 2. Register ────────────────────────────────────────────────────────────
   console.log('\n【2】 Register (creates teacher)');

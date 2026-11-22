@@ -22,9 +22,21 @@ const app = express();
 
 // --- Security middleware ---
 app.use(helmet());
+
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : ['http://localhost:5173'];
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
     credentials: true,
   })
 );

@@ -226,6 +226,9 @@ async function run() {
   // Predict for Teacher 2's student (for teacher-scoping test)
   await request('POST', `/api/students/${studentIdT2}/predict`, {}, tokenT2);
 
+  // Set latest prediction for Teacher 1's student to High risk (48) so recommendations are active
+  await request('POST', `/api/students/${studentId}/predict`, { predictedScore: 48 }, adminToken);
+
   // ══════════════════════════════════════════════════════════════════════════
   // 3. INTERVENTIONS & IMPACT
   // ══════════════════════════════════════════════════════════════════════════
@@ -277,15 +280,27 @@ async function run() {
   check('assessmentsBefore = 1',    impact.body.data?.assessmentsBefore === 1,       impact.body.data?.assessmentsBefore);
   check('assessmentsAfter = 1',     impact.body.data?.assessmentsAfter === 1,        impact.body.data?.assessmentsAfter);
 
-  console.log('\n【18】 GET /api/interventions/:id/impact — insufficient data branch');
+  console.log('\n【18】 GET /api/interventions/:id/impact — planned intervention branch');
   const impactNoData = await request('GET', `/api/interventions/${intIdNoData}/impact`, null, token);
-  check('200 OK',                       impactNoData.status === 200,                             impactNoData.status);
-  check('verdict = insufficient data',   impactNoData.body.data?.verdict === 'insufficient data', impactNoData.body.data?.verdict);
-  check('before is null',               impactNoData.body.data?.before === null,                 impactNoData.body.data?.before);
-  check('after is null',                impactNoData.body.data?.after === null,                  impactNoData.body.data?.after);
-  check('delta is null',                impactNoData.body.data?.delta === null,                  impactNoData.body.data?.delta);
-  check('informative message returned', typeof impactNoData.body.message === 'string' &&
-                                       impactNoData.body.message.includes('Insufficient data'),  impactNoData.body.message);
+  check('200 OK',                        impactNoData.status === 200,                             impactNoData.status);
+  check('verdict = not started yet',      impactNoData.body.data?.verdict === 'not started yet',   impactNoData.body.data?.verdict);
+  check('before is null',                impactNoData.body.data?.before === null,                 impactNoData.body.data?.before);
+  check('after is null',                 impactNoData.body.data?.after === null,                  impactNoData.body.data?.after);
+  check('delta is null',                 impactNoData.body.data?.delta === null,                  impactNoData.body.data?.delta);
+  check('informative message returned',  typeof impactNoData.body.message === 'string' &&
+                                         impactNoData.body.message.includes('not started yet'),   impactNoData.body.message);
+
+  console.log('\n【18b】 GET /api/interventions/:id/impact — ongoing without after assessments (insufficient data)');
+  const ivOngoing = await request('POST', '/api/interventions', {
+    student: studentId2,
+    type: 'Mentoring',
+    startDate: '2025-01-01',
+    status: 'ongoing',
+  }, token);
+  const intIdOngoing = ivOngoing.body.data?.intervention?._id;
+  const impactOngoing = await request('GET', `/api/interventions/${intIdOngoing}/impact`, null, token);
+  check('200 OK',                        impactOngoing.status === 200,                               impactOngoing.status);
+  check('verdict = insufficient data',   impactOngoing.body.data?.verdict === 'insufficient data',   impactOngoing.body.data?.verdict);
 
   // ══════════════════════════════════════════════════════════════════════════
   // 4. DASHBOARD & TEACHER SCOPING
@@ -294,17 +309,27 @@ async function run() {
   const dash1 = await request('GET', '/api/dashboard/summary', null, token);
   check('200 OK',                        dash1.status === 200,                              dash1.status);
   check('has students object',           !!dash1.body.data?.students,                       dash1.body.data);
+  check('avgPredictedScore is a number', typeof dash1.body.data?.students?.avgPredictedScore === 'number', dash1.body.data?.students?.avgPredictedScore);
   check('unassessed count == 1 ($ifNull)',dash1.body.data?.students?.byRiskLevel?.unassessed === 1,
     dash1.body.data?.students?.byRiskLevel?.unassessed);
   check('total students == 2 for Teacher 1', dash1.body.data?.students?.total === 2,        dash1.body.data?.students?.total);
   check('has interventions object',      !!dash1.body.data?.interventions,                  dash1.body.data);
   check('completed == 1',                dash1.body.data?.interventions?.completed === 1,   dash1.body.data?.interventions);
   check('planned == 1',                  dash1.body.data?.interventions?.planned === 1,     dash1.body.data?.interventions);
+  check('interventions total matches status sum', dash1.body.data?.interventions?.total === (dash1.body.data?.interventions?.completed + dash1.body.data?.interventions?.planned + dash1.body.data?.interventions?.ongoing), dash1.body.data?.interventions?.total);
   check('topRecommendations is array',   Array.isArray(dash1.body.data?.topRecommendations), dash1.body.data);
   check('topRecommendations has entries',dash1.body.data?.topRecommendations?.length >= 1,  dash1.body.data?.topRecommendations?.length);
 
-  console.log('\n【20】 Dashboard — Deduplication: uses only LATEST prediction per student');
+  console.log('\n【20】 Dashboard — Deduplication & High/Medium Risk Filtering');
   check('topRecommendations count <= 4', dash1.body.data?.topRecommendations?.length <= 4, dash1.body.data?.topRecommendations?.length);
+
+  // Test Low-risk student filtering: if latest prediction is Low risk, it must NOT appear in topRecommendations
+  await request('POST', `/api/students/${studentId}/predict`, { predictedScore: 80 }, adminToken);
+  const dashLow = await request('GET', '/api/dashboard/summary', null, token);
+  check('Low-risk students are excluded from top recommendations', dashLow.body.data?.topRecommendations?.length === 0, dashLow.body.data?.topRecommendations);
+
+  // Restore High-risk prediction for teacher-scoping verification in 【22】
+  await request('POST', `/api/students/${studentId}/predict`, { predictedScore: 48 }, adminToken);
 
   console.log('\n【21】 Dashboard — Teacher scoping: counts only own students');
   const myStudents = await request('GET', '/api/students', null, token);

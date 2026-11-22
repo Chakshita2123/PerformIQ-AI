@@ -541,53 +541,125 @@ async function main() {
     if (prng() > 0.35) continue;
 
     const intervType = INTERVENTION_TYPES[Math.floor(prng() * INTERVENTION_TYPES.length)];
-    const startDateDaysAgo = 90 + Math.floor(prng() * 60); // 90 to 150 days ago
-    const startDate = new Date(now - startDateDaysAgo * ONE_DAY_MS);
 
-    // Guarantee at least 1 assessment BEFORE startDate
-    const beforeDate = new Date(startDate.getTime() - (20 + Math.floor(prng() * 30)) * ONE_DAY_MS);
-    const beforeScore = Math.min(100, Math.max(0, parseFloat((stu.latestPredictedScore - 5 + (prng() - 0.5) * 6).toFixed(1))));
+    // Realistic mix: ~65% completed, ~20% ongoing, ~15% planned
+    const statusRoll = prng();
+    let status;
+    let startDate;
+    let outcomeText = null;
+    let notesText = '';
 
-    extraAssessments.push({
-      student: stu._id,
-      title: `${intervType} Baseline Assessment`,
-      type: 'Quiz',
-      score: beforeScore,
-      maxScore: 100,
-      date: beforeDate,
-      isSimulated: true,
-      isSeeded: true,
-    });
+    if (statusRoll < 0.65) {
+      // ── 65% Completed ─────────────────────────────────────────────────────
+      status = 'completed';
+      const startDateDaysAgo = 90 + Math.floor(prng() * 60); // 90 to 150 days ago
+      startDate = new Date(now - startDateDaysAgo * ONE_DAY_MS);
 
-    // 60% chance of improvement, 40% chance of decline / no clear change
-    const isImproved = prng() < 0.6;
-    let afterScore;
-    let outcomeText;
+      // Guarantee at least 1 assessment BEFORE startDate
+      const beforeDate = new Date(startDate.getTime() - (20 + Math.floor(prng() * 30)) * ONE_DAY_MS);
+      const beforeScore = Math.min(100, Math.max(0, parseFloat((stu.latestPredictedScore - 5 + (prng() - 0.5) * 6).toFixed(1))));
 
-    if (isImproved) {
-      improvedCount++;
-      const gain = 8 + prng() * 12; // +8 to +20 points
-      afterScore = Math.min(100, Math.max(0, parseFloat((beforeScore + gain).toFixed(1))));
-      outcomeText = `Student attended all sessions diligently, improving understanding and gaining +${(afterScore - beforeScore).toFixed(1)} points on subsequent evaluations.`;
+      extraAssessments.push({
+        student: stu._id,
+        title: `${intervType} Baseline Assessment`,
+        type: 'Quiz',
+        score: beforeScore,
+        maxScore: 100,
+        date: beforeDate,
+        isSimulated: true,
+        isSeeded: true,
+      });
+
+      // 60% chance of improvement, 40% chance of decline / no clear change
+      const isImproved = prng() < 0.6;
+      let afterScore;
+      if (isImproved) {
+        improvedCount++;
+        const gain = 8 + prng() * 12; // +8 to +20 points
+        afterScore = Math.min(100, Math.max(0, parseFloat((beforeScore + gain).toFixed(1))));
+        outcomeText = `Student attended all sessions diligently, improving understanding and gaining +${(afterScore - beforeScore).toFixed(1)} points on subsequent evaluations.`;
+      } else {
+        declinedCount++;
+        const change = (prng() - 0.6) * 8; // -4.8 to +3.2 points
+        afterScore = Math.min(100, Math.max(0, parseFloat((beforeScore + change).toFixed(1))));
+        outcomeText = `Student had inconsistent attendance with minimal performance change (${afterScore >= beforeScore ? '+' : ''}${(afterScore - beforeScore).toFixed(1)} points). Continued monitoring advised.`;
+      }
+
+      // Guarantee at least 1 assessment AFTER startDate
+      const afterDate = new Date(startDate.getTime() + (20 + Math.floor(prng() * 40)) * ONE_DAY_MS);
+      extraAssessments.push({
+        student: stu._id,
+        title: `${intervType} Post-Intervention Evaluation`,
+        type: 'Assignment',
+        score: afterScore,
+        maxScore: 100,
+        date: afterDate,
+        isSimulated: true,
+        isSeeded: true,
+      });
+      notesText = 'Completed intervention with recorded post-intervention outcome.';
+    } else if (statusRoll < 0.85) {
+      // ── 20% Ongoing (started recently, with a few assessments after start) ──
+      status = 'ongoing';
+      const startDateDaysAgo = 15 + Math.floor(prng() * 30); // 15 to 45 days ago
+      startDate = new Date(now - startDateDaysAgo * ONE_DAY_MS);
+
+      // Baseline assessment before startDate
+      const beforeDate = new Date(startDate.getTime() - (15 + Math.floor(prng() * 20)) * ONE_DAY_MS);
+      const beforeScore = Math.min(100, Math.max(0, parseFloat((stu.latestPredictedScore - 4 + (prng() - 0.5) * 6).toFixed(1))));
+
+      extraAssessments.push({
+        student: stu._id,
+        title: `${intervType} Baseline Assessment`,
+        type: 'Quiz',
+        score: beforeScore,
+        maxScore: 100,
+        date: beforeDate,
+        isSimulated: true,
+        isSeeded: true,
+      });
+
+      // 1 mid-intervention assessment after start date
+      const afterDate = new Date(now - (3 + Math.floor(prng() * 7)) * ONE_DAY_MS);
+      const midScore = Math.min(100, Math.max(0, parseFloat((beforeScore + (prng() - 0.3) * 8).toFixed(1))));
+
+      extraAssessments.push({
+        student: stu._id,
+        title: `${intervType} Progress Check`,
+        type: 'Practice Test',
+        score: midScore,
+        maxScore: 100,
+        date: afterDate,
+        isSimulated: true,
+        isSeeded: true,
+      });
+
+      outcomeText = null;
+      notesText = 'Intervention currently in progress. Weekly check-ins ongoing.';
     } else {
-      declinedCount++;
-      const change = (prng() - 0.6) * 8; // -4.8 to +3.2 points
-      afterScore = Math.min(100, Math.max(0, parseFloat((beforeScore + change).toFixed(1))));
-      outcomeText = `Student had inconsistent attendance with minimal performance change (${afterScore >= beforeScore ? '+' : ''}${(afterScore - beforeScore).toFixed(1)} points). Continued monitoring advised.`;
-    }
+      // ── 15% Planned (future start date, no outcome yet) ────────────────────
+      status = 'planned';
+      const futureDays = 15 + Math.floor(prng() * 30); // 15 to 45 days in the future
+      startDate = new Date(now + futureDays * ONE_DAY_MS);
 
-    // Guarantee at least 1 assessment AFTER startDate
-    const afterDate = new Date(startDate.getTime() + (20 + Math.floor(prng() * 40)) * ONE_DAY_MS);
-    extraAssessments.push({
-      student: stu._id,
-      title: `${intervType} Post-Intervention Evaluation`,
-      type: 'Assignment',
-      score: afterScore,
-      maxScore: 100,
-      date: afterDate,
-      isSimulated: true,
-      isSeeded: true,
-    });
+      // 1 past baseline assessment before start date
+      const beforeDate = new Date(now - (10 + Math.floor(prng() * 20)) * ONE_DAY_MS);
+      const beforeScore = Math.min(100, Math.max(0, parseFloat((stu.latestPredictedScore + (prng() - 0.5) * 6).toFixed(1))));
+
+      extraAssessments.push({
+        student: stu._id,
+        title: `${intervType} Preliminary Assessment`,
+        type: 'Quiz',
+        score: beforeScore,
+        maxScore: 100,
+        date: beforeDate,
+        isSimulated: true,
+        isSeeded: true,
+      });
+
+      outcomeText = null;
+      notesText = 'Scheduled planned intervention for upcoming academic cycle.';
+    }
 
     interventionsToInsert.push({
       student: stu._id,
@@ -595,9 +667,9 @@ async function main() {
       description: `Targeted ${intervType.toLowerCase()} to address academic risk factors identified by PerformIQ AI.`,
       assignedBy: stu.assignedTeacher,
       startDate,
-      status: 'completed',
+      status,
       outcome: outcomeText,
-      notes: 'Simulated intervention outcome generated for evaluation purposes.',
+      notes: notesText,
       isSimulated: true,
       isSeeded: true,
     });

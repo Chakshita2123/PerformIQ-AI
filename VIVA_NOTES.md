@@ -215,3 +215,83 @@ MongoDB Atlas uses the **WiredTiger storage engine**, which applies Snappy compr
 
 **Q: What is the difference between MongoDB `dataSize` and `storageSize`?**  
 > `dataSize` is the uncompressed logical volume of all BSON documents. `storageSize` is the physical disk space allocated by the WiredTiger storage engine, which compresses documents using Snappy. In PerformIQ, 14.44 MB of logical data occupies just 1.85 MB of disk space.
+
+---
+
+## 9. React Frontend Architecture & Core Concepts (Phase 5a)
+
+### 1. Components
+In React, a component is an independent, reusable piece of user interface (UI) written as a JavaScript function that returns JSX (HTML-like syntax). Examples: `Layout`, `DashboardPage`, `StudentsPage`.
+
+### 2. Props (Properties)
+Props are read-only inputs passed from a parent component to a child component, similar to function arguments. Data flows strictly in one direction (unidirectional data flow: parent to child).
+
+### 3. State (`useState`)
+State represents internal data that can change over time based on user interactions or API responses. When state updates via its setter function (e.g. `setStudents(...)`), React triggers a re-render of that component and its descendants.
+
+### 4. Side Effects (`useEffect`)
+`useEffect` lets components perform side effects (fetching data from backend APIs, setting timers, or subscribing to events) after rendering. The dependency array `[dependency]` controls when the effect re-runs (an empty array `[]` runs once on component mount).
+
+### 5. Client-Side Routing (React Router)
+Standard web applications request a new HTML page from the server on every link click (full page reload). **React Router** enables a Single-Page Application (SPA): it intercepts URL changes, updates the browser history, and swaps components dynamically in the browser without reloading the page.
+
+### 6. Context API (`createContext`, `useContext`)
+In complex applications, passing state down through multiple intermediate components ("prop drilling") becomes unmaintainable. React Context provides a global state store. In PerformIQ, `AuthContext` provides `user`, `token`, `login()`, `logout()`, `isAdmin`, and `isTeacher` to any component in the component tree.
+
+### 7. Controlled Inputs
+Form elements (`<input>`, `<select>`) whose values are controlled by React state rather than the browser DOM. Every keystroke fires an `onChange` handler that updates state, making the component the "single source of truth".
+
+### 8. JWT Storage & The Security Trade-off (localStorage vs httpOnly Cookies)
+- **Our Implementation (`localStorage`):** The JWT is saved in the browser's `localStorage` and attached to requests via Axios request interceptors (`Authorization: Bearer <token>`).
+- **The XSS Risk:** Any malicious JavaScript script injected into the page (Cross-Site Scripting, or XSS) can access `localStorage.getItem('performiq_token')` and exfiltrate the token.
+- **The Alternative (`httpOnly` Cookies):** Storing the token in an `httpOnly, Secure, SameSite=Strict` cookie prevents JavaScript from reading the token, eliminating direct XSS token theft. However, cookies are vulnerable to **CSRF (Cross-Site Request Forgery)**, requiring anti-CSRF tokens or strict `SameSite` policies.
+- **Why `localStorage` was chosen here:** In single-page architectures with decoupled microservices, `localStorage` simplifies cross-origin API calls without complex cookie domains or pre-flight CORS cookie negotiation, while XSS is mitigated through sanitized inputs, absence of `eval()`, and standard React JSX automatic string escaping.
+
+---
+
+## 10. Likely Viva Questions & Answers (Frontend)
+
+**Q: What is a Single Page Application (SPA)?**  
+> An SPA loads a single HTML shell (`index.html`) once. When the user navigates between pages, React Router intercepts the URL and dynamically re-renders components in the DOM via JavaScript without requesting a full page reload from the web server.
+
+**Q: What is the purpose of Axios Interceptors in PerformIQ?**  
+> We use a **request interceptor** to automatically inject the Bearer JWT token into every outgoing API call, and a **response interceptor** to monitor for HTTP `401 Unauthorized`. If the token expires or becomes invalid, the interceptor automatically purges `localStorage` and redirects the user to `/login`.
+
+**Q: What happens if an unauthorized user attempts to access a protected route?**  
+> Our `<ProtectedRoute />` wrapper checks `isAuthenticated` from `AuthContext`. If false, it renders `<Navigate to="/login" replace />`, redirecting unauthenticated users before any protected page component mounts.
+
+**Q: How does PerformIQ achieve role-aware navigation on the frontend?**  
+> `AuthContext` decodes the authenticated user's `role` property (`'admin'` vs `'teacher'`). The dashboard and student directory dynamically adapt: teachers see their personal assigned students and scoped metrics, while admins see global metrics and assigned teacher indicators.
+
+---
+
+## 11. Dashboard Aggregations, Seeder Distributions & Edge Cases
+
+### 1. Handling "Planned" and "Ongoing" Interventions in `/api/interventions/:id/impact`
+- If an intervention is marked as `planned`, no outcome has occurred yet. Calling `/impact` returns HTTP `200 OK` with:
+  ```json
+  {
+    "verdict": "not started yet",
+    "message": "Intervention is planned and has not started yet.",
+    "before": null,
+    "after": null,
+    "delta": null
+  }
+  ```
+- If an intervention has begun (`ongoing`) but does not yet have assessments after its start date, it returns `verdict: "insufficient data"`.
+
+### 2. High & Medium Risk Recommendation Filtering (Pipeline C)
+- Why filter recommendations to High and Medium risk students? Low-risk students (predicted score ≥ 65) do not require targeted remedial interventions. Generating recommendations from low-risk profiles pollutes the dashboard action items with minor optimizations rather than urgent remedial steps.
+- In `dashboardController.js` (Pipeline C), Stage 5b applies:
+  `{ $match: { 'latestPrediction.riskLevel': { $in: ['High', 'Medium'] } } }` immediately after grouping by student to get the latest prediction.
+
+### 3. Score Formatting & Display (Two Decimals, No Percentage)
+- The ML model outputs a continuous regression score representing a mark out of 100.
+- It is formatted strictly with `.toFixed(2)` and without a `%` symbol to avoid false impressions of fractional boundaries (e.g., preventing `49.96` from rendering as `50.0%` right beside a `High Risk` badge when the threshold is `< 50`).
+
+### 4. Realistic Seeder Distribution (65% / 20% / 15%)
+- Seed script (`backend/seed/seed.js`) assigns interventions to High and Medium risk students with a deterministic split:
+  - **65% Completed:** Historical start dates (-90 to -150 days), with both pre- and post-intervention assessments, and realistic improvement/decline outcomes.
+  - **20% Ongoing:** Recent start dates (-15 to -45 days), with baseline pre-assessments and ongoing progress assessments, `outcome: null`.
+  - **15% Planned:** Future start dates (+15 to +45 days), baseline pre-assessments in place, `outcome: null`.
+

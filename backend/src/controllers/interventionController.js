@@ -126,6 +126,30 @@ const getImpact = async (req, res, next) => {
 
     const startDate = new Date(intervention.startDate);
 
+    // If the intervention is planned, return "not started yet" gracefully
+    if (intervention.status === 'planned') {
+      const beforeDocs = await Assessment.find({ student: intervention.student, date: { $lt: startDate } });
+      const avgScore = beforeDocs.length > 0
+        ? parseFloat((beforeDocs.reduce((sum, a) => sum + (a.score / a.maxScore) * 100, 0) / beforeDocs.length).toFixed(2))
+        : null;
+
+      return res.json({
+        success: true,
+        message: 'Intervention is planned and has not started yet.',
+        data: {
+          interventionId: intervention._id,
+          status: 'planned',
+          startDate: intervention.startDate,
+          assessmentsBefore: beforeDocs.length,
+          assessmentsAfter: 0,
+          before: avgScore,
+          after: null,
+          delta: null,
+          verdict: 'not started yet',
+        },
+      });
+    }
+
     // Fetch all assessments for this student split by the intervention date
     const [beforeDocs, afterDocs] = await Promise.all([
       Assessment.find({ student: intervention.student, date: { $lt: startDate } }),

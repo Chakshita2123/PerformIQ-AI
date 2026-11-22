@@ -196,6 +196,13 @@ const getDashboardSummary = async (req, res, next) => {
         },
       },
 
+      // STAGE 5b — $match: count only students whose LATEST risk is High or Medium
+      {
+        $match: {
+          'latestPrediction.riskLevel': { $in: ['High', 'Medium'] },
+        },
+      },
+
       // STAGE 6 — $unwind the recommendations array of that latest prediction
       { $unwind: '$latestPrediction.recommendations' },
 
@@ -229,8 +236,17 @@ const getDashboardSummary = async (req, res, next) => {
           avgPredictedScore: stats.avgPredictedScore
             ? parseFloat(stats.avgPredictedScore.toFixed(2))
             : null,
+          averagePredictedScore: stats.avgPredictedScore
+            ? parseFloat(stats.avgPredictedScore.toFixed(2))
+            : null,
         },
-        interventions: interventionCounts,
+        interventions: {
+          ...interventionCounts,
+          total:
+            (interventionCounts.planned || 0) +
+            (interventionCounts.ongoing || 0) +
+            (interventionCounts.completed || 0),
+        },
         topRecommendations: topRecommendations.map((r) => ({
           reason: r._id,
           count:  r.count,

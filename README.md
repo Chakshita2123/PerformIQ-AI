@@ -48,19 +48,31 @@ PerformIQ-AI/
 │   ├── .env                             ← Secrets (never committed)
 │   ├── .env.example                     ← Template — copy to .env
 │   ├── test-phase1.js                   ← Phase 1 test suite (Self-cleaning)
-│   ├── test-phase2.js                   ← Phase 2 & 3 test suite (Self-cleaning)
+│   ├── test-phase2.js                   ← Phase 2, 3 & 4 test suite (Self-cleaning)
+│   ├── seed/                            ← Seed script (npm run seed)
 │   ├── scripts/
 │   │   ├── run-tests.js                 ← Cross-platform test runner (PowerShell/Bash)
 │   │   └── cleanTestData.js             ← Strict cleanup tool (never touches real data)
 │   └── src/
 │       ├── config/db.js                 ← MongoDB connection (with test DB isolation)
-│       ├── models/                      ← User, Student, Assessment, Prediction, Intervention, OuladRecord
+│       ├── models/                      ← User, Student, Assessment, Prediction, Intervention, Oulad*
 │       ├── middleware/                  ← auth (protect, requireRole), errorHandler
-│       ├── controllers/                 ← auth, student, assessment, prediction, intervention, dashboard
-│       ├── routes/                      ← auth, student, assessment, prediction, intervention, dashboard
+│       ├── controllers/                 ← auth, student, assessment, prediction, intervention, dashboard, oulad
+│       ├── routes/                      ← auth, student, assessment, prediction, intervention, dashboard, oulad
 │       └── utils/                       ← recommendations, scopeCheck
+├── frontend/
+│   ├── src/
+│   │   ├── api/client.js                ← Axios client with JWT injection & 401 redirect
+│   │   ├── context/AuthContext.jsx       ← Global auth state & localStorage persistence
+│   │   ├── components/                  ← Layout (responsive sidebar/topbar), ProtectedRoute
+│   │   ├── pages/                       ← LoginPage, DashboardPage (Recharts), StudentsPage (pagination/filter), ProfilePlaceholder
+│   │   ├── App.jsx                      ← Client routing
+│   │   └── main.jsx                     ← React DOM entry point
+│   ├── package.json
+│   ├── vite.config.js
+│   └── tailwind.config.js
 ├── ml-service/
-│   ├── main.py                          ← FastAPI prediction server (GET /health, POST /predict)
+│   ├── main.py                          ← FastAPI prediction server (GET /health, POST /predict, POST /predict-batch)
 │   ├── performiq_model.joblib           ← Saved scikit-learn pipeline
 │   ├── requirements.txt                 ← Pinned dependency versions
 │   └── venv/                            ← Python virtual environment
@@ -73,38 +85,51 @@ PerformIQ-AI/
 
 ---
 
-## How to Start Both Servers
+## How to Start All Three Servers
+
+To run the complete PerformIQ AI application locally, start the three microservices in separate terminal windows:
 
 ### 1. Start the FastAPI ML Service (Port 8000)
 ```powershell
-# From the project root:
+# In Terminal 1:
 cd ml-service
 
 # Activate virtual environment:
-# On Windows PowerShell:
+# Windows PowerShell:
 .\venv\Scripts\Activate.ps1
-# On Linux / macOS:
+# Linux / macOS:
 source venv/bin/activate
 
-# Start Uvicorn server:
+# Start Uvicorn:
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
-Health check: `http://127.0.0.1:8000/health` → `{"status": "ok", "service": "PerformIQ ML Service", "model_loaded": true}`
+- Health Check: `http://127.0.0.1:8000/health` → `{"status": "ok", "service": "PerformIQ ML Service", "model_loaded": true}`
 
 ### 2. Start the Express Backend API (Port 5000)
 ```powershell
-# Open a second terminal window:
+# In Terminal 2:
 cd backend
 
 # Install dependencies if not already done:
 npm install
 
-# Start development server:
+# Start server:
 npm run dev
-# Or for production:
-npm start
 ```
-Health check: `http://localhost:5000/api/health`
+- Health Check: `http://localhost:5000/api/health`
+
+### 3. Start the React Frontend Application (Port 5173)
+```powershell
+# In Terminal 3:
+cd frontend
+
+# Install dependencies if not already done:
+npm install
+
+# Start Vite development server:
+npm run dev
+```
+- Web Application: `http://localhost:5173` (Open in your browser)
 
 ---
 

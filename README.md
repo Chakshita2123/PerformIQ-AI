@@ -28,30 +28,41 @@ interventions (mentoring, extra practice, etc.) to students who are at risk of f
 
 ```
 backend/
-├── server.js                        ← Entry point; sets up Express, middleware, routes
+├── server.js                        ← Entry point; mounts all route handlers & error middleware
 ├── .env                             ← Secrets (never committed)
 ├── .env.example                     ← Template — copy this to .env
+├── test-phase1.js                   ← Phase 1 endpoint test suite
+├── test-phase2.js                   ← Phase 2 endpoint test suite
 └── src/
     ├── config/
     │   └── db.js                    ← Mongoose.connect()
     ├── models/
-    │   ├── User.js                  ← Teachers and admin
-    │   ├── Student.js               ← One row per student; mirrors CSV columns
-    │   ├── Assessment.js            ← Scored tests per student
-    │   ├── Prediction.js            ← ML prediction results
-    │   ├── Intervention.js          ← Teacher-assigned actions
+    │   ├── User.js                  ← Teachers and admin (passwordHash select: false)
+    │   ├── Student.js               ← One row per student; mirrors CSV columns + cached risk fields
+    │   ├── Assessment.js            ← Scored tests/quizzes per student
+    │   ├── Prediction.js            ← ML prediction records & recommendations
+    │   ├── Intervention.js          ← Teacher-assigned corrective actions
     │   └── OuladRecord.js           ← Pre-computed Module 3 data
     ├── middleware/
     │   ├── auth.js                  ← JWT protect + requireRole
     │   └── errorHandler.js          ← Centralised error responses
     ├── controllers/
     │   ├── authController.js        ← register, login, me
-    │   └── studentController.js     ← Full CRUD + pagination/search/filter/sort
+    │   ├── studentController.js     ← Full CRUD + pagination/search/filter/sort
+    │   ├── assessmentController.js  ← Assessment creation & listing
+    │   ├── predictionController.js  ← Predict score, store risk & recommendations
+    │   ├── interventionController.js← Interventions CRUD & before/after impact calculation
+    │   └── dashboardController.js   ← MongoDB aggregation pipeline summary
     ├── routes/
-    │   ├── authRoutes.js
-    │   └── studentRoutes.js
+    │   ├── authRoutes.js            ← Auth endpoints with rate-limiting
+    │   ├── studentRoutes.js         ← Student CRUD routes
+    │   ├── assessmentRoutes.js      ← /api/students/:studentId/assessments (mergeParams)
+    │   ├── predictionRoutes.js      ← /api/students/:studentId/predict & /api/predictions
+    │   ├── interventionRoutes.js    ← /api/interventions & /api/students/:studentId/interventions
+    │   └── dashboardRoutes.js       ← /api/dashboard/summary
     └── utils/
-        └── recommendations.js       ← Rule-based recommendations (11 rules, max 4 returned)
+        ├── recommendations.js       ← Rule-based recommendations (11 rules, max 4 returned)
+        └── scopeCheck.js            ← Teacher-scoping verification helper & risk-level mapper
 ```
 
 ---
@@ -101,54 +112,62 @@ All responses follow the shape:
 { "success": true|false, "data": {...}, "message": "..." }
 ```
 
-### Auth endpoints
+### 1. Auth Endpoints
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/api/auth/register` | Public | Create a teacher account |
-| POST | `/api/auth/login` | Public | Get a JWT token |
-| GET | `/api/auth/me` | Bearer token | Get current user |
+| POST | `/api/auth/register` | Public | Create a teacher account (role locked to teacher) |
+| POST | `/api/auth/login` | Public | Obtain a JWT token |
+| GET | `/api/auth/me` | Bearer token | Return authenticated user info |
 
-### Student endpoints
+### 2. Student Endpoints
 
 | Method | Path | Auth | Roles | Description |
 |---|---|---|---|---|
-| GET | `/api/students` | Bearer | admin, teacher | List students (paginated) |
-| POST | `/api/students` | Bearer | admin, teacher | Create a student |
-| GET | `/api/students/:id` | Bearer | admin, teacher | Get one student |
-| PUT | `/api/students/:id` | Bearer | admin, teacher | Update a student |
-| DELETE | `/api/students/:id` | Bearer | **admin only** | Delete a student |
+| GET | `/api/students` | Bearer | admin, teacher | List students (paginated, filtered, sorted) |
+| POST | `/api/students` | Bearer | admin, teacher | Create student (teacher auto-assigned) |
+| GET | `/api/students/:id` | Bearer | admin, teacher | Get student details |
+| PUT | `/api/students/:id` | Bearer | admin, teacher | Update student fields |
+| DELETE | `/api/students/:id` | Bearer | **admin only** | Delete student record |
 
-#### Query parameters for GET /api/students
+### 3. Assessment Endpoints
 
-| Param | Example | Description |
-|---|---|---|
-| `page` | `?page=2` | Page number (default 1) |
-| `limit` | `?limit=20` | Items per page (default 10, max 100) |
-| `search` | `?search=Alice` | Full-text search on name / studentId |
-| `riskLevel` | `?riskLevel=High` | Filter by High / Medium / Low |
-| `sortBy` | `?sortBy=name` | Field to sort by (default: createdAt) |
-| `order` | `?order=asc` | asc or desc (default: desc) |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/students/:studentId/assessments` | Bearer | Log an assessment (Quiz, Assignment, Midterm, etc.) |
+| GET | `/api/students/:studentId/assessments` | Bearer | List all assessments for a student (oldest first) |
+
+### 4. Prediction Endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/students/:studentId/predict` | Bearer | Record prediction, evaluate risk, generate recommendations, & update student record |
+| GET | `/api/students/:studentId/predictions` | Bearer | Get all predictions for a student (newest first) |
+| GET | `/api/predictions?risk=High` | Bearer | List predictions across students (scoped to teacher) |
+
+### 5. Intervention & Impact Endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/interventions` | Bearer | Assign an intervention (Mentoring, Extra Practice, etc.) |
+| GET | `/api/students/:studentId/interventions` | Bearer | List interventions for a specific student |
+| PATCH | `/api/interventions/:id` | Bearer | Update intervention status (`planned`, `ongoing`, `completed`), notes, outcome |
+| GET | `/api/interventions/:id/impact` | Bearer | Calculate before vs after assessment score averages & verdict |
+
+### 6. Dashboard Endpoints
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/dashboard/summary` | Bearer | Aggregated metrics: students by risk, average score, intervention counts, top recommendations |
 
 ---
 
-## Role Rules
+## Role & Scoping Rules
 
-- **admin** — sees all students, can assign/reassign teachers, can delete students
-- **teacher** — sees only students where `assignedTeacher == their own id`; cannot change `assignedTeacher`
-- Public `register` always creates a **teacher**; the admin is created by the seed script only
-
----
-
-## Security Measures
-
-| Measure | Library | Where |
-|---|---|---|
-| Secure HTTP headers | helmet | server.js |
-| CORS whitelist | cors | server.js |
-| Rate limiting (10/15 min) | express-rate-limit | authRoutes.js |
-| Password hashing (bcrypt, 12 rounds) | bcryptjs | authController.js |
-| JWT (signed with secret + expiry) | jsonwebtoken | authController.js |
-| Input validation | express-validator | all routes |
-| `passwordHash select:false` | Mongoose | User.js |
-| Generic "Invalid email or password" | manual | authController.js |
+- **admin** — sees all students, can assign/reassign teachers, can delete students, views global dashboard metrics
+- **teacher** — sees **only** students where `assignedTeacher == their own ID`. Teacher scoping is enforced across:
+  - Student listings and detail lookups
+  - Assessment logs and reads
+  - Prediction requests and history
+  - Intervention assignments and updates
+  - Dashboard statistics (aggregates only their assigned students)

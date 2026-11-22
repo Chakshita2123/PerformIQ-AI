@@ -1,252 +1,261 @@
 # VIVA_NOTES.md — Plain-English Explanation of Every Concept
 
-This file is your study guide. For every concept used in Phase 1, you get:
+This file is your complete viva preparation guide. Every concept used in Phase 1 & Phase 2 is explained with:
 - **What it is** in plain English
 - **Why we use it**
-- **Likely viva question + short answer**
+- **Line-by-line explanation of complex code (like the Aggregation Pipeline)**
+- **Likely viva questions with concise, high-scoring answers**
 
 ---
 
-## 1. REST API
+## 1. REST API & Architecture
 
 **What it is:**  
-REST (Representational State Transfer) is a style for designing web APIs. You use standard HTTP methods to do things with resources:
-- `GET` → read
-- `POST` → create
-- `PUT` → update/replace
-- `PATCH` → partial update
-- `DELETE` → delete
+REST (Representational State Transfer) is an architectural style for networked applications. You interact with resources (students, assessments, interventions) using standard HTTP methods:
+- `GET` — read / retrieve
+- `POST` — create new resource
+- `PUT` — complete replace or update of a resource
+- `PATCH` — partial update of specific fields
+- `DELETE` — remove resource
 
-**Why we use it:**  
-It's the most widely understood API style. Any frontend, mobile app or tool (like Postman/curl) can talk to it.
-
-**Viva Q: What is a RESTful API?**  
-> An API that uses HTTP methods and standard status codes to operate on resources identified by URLs. It is stateless — each request carries all the information needed; the server does not remember previous requests.
+**Status Codes in PerformIQ:**
+- `200 OK` — successful query or update
+- `201 Created` — resource successfully created
+- `400 Bad Request` — validation error (e.g., negative score, invalid enum)
+- `401 Unauthorized` — missing or invalid JWT
+- `403 Forbidden` — authenticated, but forbidden from resource (e.g., teacher trying to delete student)
+- `404 Not Found` — resource doesn't exist
+- `409 Conflict` — duplicate key (e.g., email or studentId already registered)
+- `429 Too Many Requests` — rate limit exceeded
 
 ---
 
-## 2. Express.js
+## 2. Express.js Routing & Sub-Routers (`mergeParams: true`)
 
 **What it is:**  
-A minimal web framework for Node.js. It wraps Node's built-in `http` module and lets you define routes, middleware and error handlers cleanly.
+In Phase 2, assessment routes look like:
+`/api/students/:studentId/assessments`
 
-**Key concepts:**
-- `app.use(fn)` — registers middleware for every request
-- `app.get('/path', fn)` — registers a route handler
-- `req` — the incoming request (headers, body, params, query)
-- `res` — the outgoing response (`res.json()`, `res.status()`)
-- `next` — passes control to the next middleware or error handler
+When nesting an Express router under a parent router path containing URL parameters (like `:studentId`), by default Express creates a fresh params object, hiding `:studentId` from the child router!
 
-**Viva Q: What is middleware in Express?**  
-> A function with signature `(req, res, next)` that runs between the incoming request and the route handler. It can read/modify `req` and `res`, end the request, or call `next()` to continue.
+**Why `mergeParams: true` is crucial:**
+```javascript
+const router = express.Router({ mergeParams: true });
+```
+With `mergeParams: true`, the child router inherits `req.params.studentId` from the parent route path.
 
----
-
-## 3. MongoDB & Mongoose
-
-**What MongoDB is:**  
-A NoSQL database that stores documents (like JSON objects) instead of rows in tables. Each collection is like a table; each document is a row but can have flexible fields.
-
-**What Mongoose is:**  
-An ODM (Object Document Mapper) for MongoDB in Node.js. It lets you define a **schema** (the shape and rules of your documents) and provides methods like `find()`, `create()`, `findByIdAndUpdate()`.
-
-**Viva Q: Why use Mongoose instead of the raw MongoDB driver?**  
-> Mongoose adds schemas and validation on top of MongoDB. Without it, you can store any shape of data — Mongoose enforces types, required fields, enum values and min/max ranges, catching errors before bad data hits the database.
-
-**Viva Q: What is an index in MongoDB?**  
-> An index is a data structure that makes queries faster. Without an index, MongoDB scans every document (a "collection scan"). With an index on `latestRiskLevel`, it jumps straight to matching documents. We also use a `text` index on `name` and `studentId` to support the search query.
+**Viva Q: Why do we pass `{ mergeParams: true }` to `express.Router()`?**  
+> By default, child routers cannot see URL parameters declared in the parent router's path. Setting `mergeParams: true` ensures parent route params (like `:studentId`) are preserved and accessible in the child router handlers.
 
 ---
 
-## 4. Mongoose Schemas & Models
+## 3. MongoDB Aggregation Pipeline (Deep Dive)
 
-**Schema** — defines the shape of documents: field names, types, required, default, enum, min, max.  
-**Model** — a class compiled from the schema. `Student.find()`, `Student.create()` etc. are model methods.
+### What is an Aggregation Pipeline?
+Think of MongoDB aggregation like an **assembly line** or a **Unix pipeline** (`cat | grep | sort | head`):
+- Raw documents enter Stage 1.
+- Stage 1 filters or transforms them and passes the output to Stage 2.
+- Stage 2 processes that output and passes it to Stage 3, until the final formatted document emerges.
 
-```js
-const studentSchema = new mongoose.Schema({ name: { type: String, required: true } });
-const Student = mongoose.model('Student', studentSchema);
+In `dashboardController.js`, we use three aggregation pipelines to compute the dashboard statistics in real time.
+
+---
+
+### Pipeline A: Student Stats Line-by-Line
+
+```javascript
+const studentStats = await Student.aggregate([
+  // STAGE 1: $match
+  { $match: studentMatch },
+
+  // STAGE 2: $group
+  {
+    $group: {
+      _id: null,
+      total: { $sum: 1 },
+      avgPredictedScore: { $avg: '$latestPredictedScore' },
+      highRisk: {
+        $sum: { $cond: [{ $eq: ['$latestRiskLevel', 'High'] }, 1, 0] },
+      },
+      mediumRisk: {
+        $sum: { $cond: [{ $eq: ['$latestRiskLevel', 'Medium'] }, 1, 0] },
+      },
+      lowRisk: {
+        $sum: { $cond: [{ $eq: ['$latestRiskLevel', 'Low'] }, 1, 0] },
+      },
+      // Students who have never had a prediction yet (missing or null latestRiskLevel)
+      unassessed: {
+        $sum: {
+          $cond: [
+            { $eq: [{ $ifNull: ['$latestRiskLevel', null] }, null] },
+            1,
+            0,
+          ],
+        },
+      },
+    },
+  },
+]);
 ```
 
-**`select: false`** on `passwordHash`:  
-Mongoose will NOT include that field in any query result by default. You must explicitly opt in with `.select('+passwordHash')`. This means the hash can never accidentally leak into API responses.
-
-**Viva Q: What is `select: false` and why do we use it on passwordHash?**  
-> `select: false` tells Mongoose to exclude a field from all query results unless explicitly requested. We use it on `passwordHash` so it can never accidentally be returned in an API response — it stays hidden even if a developer forgets to exclude it manually.
-
----
-
-## 5. JWT (JSON Web Token)
-
-**What it is:**  
-A compact, URL-safe token with three parts separated by dots:  
-`HEADER.PAYLOAD.SIGNATURE`
-
-- **Header** — algorithm used (HS256)
-- **Payload** — claims (data) like `{ id: "user_id", iat: 1234, exp: 5678 }`
-- **Signature** — HMAC of header+payload using the server's secret key
-
-**Flow:**
-1. User logs in → server creates a JWT signed with `JWT_SECRET`, sends it to the client
-2. Client stores the token (memory or localStorage) and sends it on every request: `Authorization: Bearer <token>`
-3. Server verifies the signature — if valid and not expired, the user is authenticated
-
-**Viva Q: What are the three parts of a JWT?**  
-> Header (algorithm), Payload (data/claims), Signature (HMAC of header+payload with the secret). The signature is what makes it tamper-proof — changing the payload invalidates the signature.
-
-**Viva Q: Is the JWT payload encrypted?**  
-> No. It is only Base64-encoded, not encrypted. Anyone can decode it. Never put sensitive data (like a password) in the payload. The signature only proves the payload hasn't been changed.
-
-**Viva Q: Why do JWTs have an expiry?**  
-> If a token is stolen, it can be used forever without expiry. An expiry (e.g. 7 days) limits the damage window. After expiry, the user must log in again.
+#### Line-by-Line Explanation:
+1. `Student.aggregate([...])` — Runs a native MongoDB aggregation on the `students` collection.
+2. `{ $match: studentMatch }` — Equivalent to SQL `WHERE`. If a teacher is logged in, `studentMatch` is `{ assignedTeacher: req.user._id }`. Only that teacher's students pass to the next stage. For admin, it's `{}` (all students).
+3. `{ $group: { _id: null, ... } }` — Groups all matching documents into **one single summary document** (`_id: null` means no partitioning).
+4. `total: { $sum: 1 }` — Adds 1 for every document that reaches this stage, producing the total count.
+5. `avgPredictedScore: { $avg: '$latestPredictedScore' }` — Computes the mathematical mean of `latestPredictedScore`. Mongoose/MongoDB automatically ignores `null` values so unassessed students don't distort the average.
+6. `highRisk` / `mediumRisk` / `lowRisk`: Counts students by matching their `latestRiskLevel`.
+7. `unassessed: { $sum: { $cond: [{ $eq: [{ $ifNull: ['$latestRiskLevel', null] }, null] }, 1, 0] } }` — Uses `$ifNull` to treat missing or `null` values as `null`. When matched, it contributes 1 to the unassessed count.
 
 ---
 
-## 6. Bcrypt Password Hashing
+### Pipeline B: Intervention Counts Line-by-Line
 
-**What it is:**  
-A slow, one-way hashing algorithm specifically designed for passwords. It adds a **salt** (random data) before hashing, so two identical passwords produce different hashes.
-
-**Why not MD5 or SHA-256?**  
-Those are fast — an attacker can try billions of guesses per second. Bcrypt is intentionally slow (you control this with salt rounds; we use 12). With 12 rounds, one hash takes ~300 ms — fine for login, but makes brute-force attacks ~1 trillion times slower.
-
-**Viva Q: What is bcrypt and why is it used for passwords?**  
-> Bcrypt is a slow password hashing algorithm that adds a random salt and applies many rounds of hashing. Its slowness prevents brute-force attacks. We store only the hash, never the plain password.
-
-**Viva Q: Why do we use the same error message for a wrong email and a wrong password?**  
-> To prevent **email enumeration**. If we said "email not found" vs "wrong password", an attacker could probe which emails are registered. Using one message ("Invalid email or password") reveals nothing.
-
----
-
-## 7. Roles & Authorization
-
-**Authentication** — proving who you are (JWT)  
-**Authorization** — deciding what you are allowed to do (role check)
-
-**Our roles:**
-- `admin` — created only by the seed script; can see all students, delete students, reassign teachers
-- `teacher` — created by public register; sees only their own students (`assignedTeacher == their id`)
-
-**Viva Q: What is the difference between authentication and authorization?**  
-> Authentication verifies identity (are you who you say you are?). Authorization checks permissions (are you allowed to do this?). JWT handles authentication; our `requireRole` middleware handles authorization.
-
-**Viva Q: Why can't a user set their own role to admin at registration?**  
-> The register controller ignores `req.body.role` and always hardcodes `role: 'teacher'`. The admin account is only created by the seed script running directly with DB access.
-
----
-
-## 8. Middleware Chain
-
-Request flow in our app:
-```
-Request
-  → helmet (sets security headers)
-  → cors (checks origin)
-  → morgan (logs the request)
-  → express.json() (parses body)
-  → router (matches route)
-     → authLimiter (rate limit, auth routes only)
-     → express-validator (validate body)
-     → protect (verify JWT)
-     → requireRole (check role)
-     → controller (business logic)
-  → errorHandler (catches any error)
-Response
+```javascript
+const interventionStats = await Intervention.aggregate([
+  // STAGE 1: $lookup
+  {
+    $lookup: {
+      from: 'students',
+      localField: 'student',
+      foreignField: '_id',
+      as: 'studentDoc',
+    },
+  },
+  // STAGE 2: $unwind
+  { $unwind: '$studentDoc' },
+  // STAGE 3: $match
+  {
+    $match: req.user.role === 'teacher'
+      ? { 'studentDoc.assignedTeacher': req.user._id }
+      : {},
+  },
+  // STAGE 4: $group
+  {
+    $group: {
+      _id: '$status',
+      count: { $sum: 1 },
+    },
+  },
+]);
 ```
 
-**Viva Q: What happens if you call `next(err)` in a controller?**  
-> Express skips all remaining regular middleware and jumps straight to the error-handling middleware (the one with 4 parameters: `err, req, res, next`). Our `errorHandler` then sends a consistent `{ success: false, message }` response.
+#### Line-by-Line Explanation:
+1. `{ $lookup: { from: 'students', localField: 'student', foreignField: '_id', as: 'studentDoc' } }` — Equivalent to SQL `LEFT JOIN`. Since interventions only store the student's ObjectId, we join the `students` collection to check who the assigned teacher is.
+2. `{ $unwind: '$studentDoc' }` — `$lookup` always returns an array `[ { ... } ]`. `$unwind` deconstructs the array so `studentDoc` becomes a direct embedded object.
+3. `{ $match: { 'studentDoc.assignedTeacher': req.user._id } }` — Filters the interventions based on the joined student's assigned teacher.
+4. `{ $group: { _id: '$status', count: { $sum: 1 } } }` — SQL `GROUP BY status`. Produces separate documents for each distinct status (e.g. `{ _id: 'planned', count: 3 }`, `{ _id: 'ongoing', count: 2 }`).
 
 ---
 
-## 9. Helmet
+### Pipeline C: Top 5 Recommendations (Only Latest Prediction per Student)
 
-**What it is:**  
-A collection of small middleware functions that set security-related HTTP response headers.  
-Examples:
-- `X-Frame-Options: SAMEORIGIN` — prevents clickjacking
-- `X-Content-Type-Options: nosniff` — prevents MIME-type sniffing
-- `Strict-Transport-Security` — forces HTTPS
-
-**Viva Q: Why do we use Helmet?**  
-> Helmet adds security headers that browsers use to protect users. Without them, attackers can exploit vulnerabilities like clickjacking or cross-site scripting more easily.
-
----
-
-## 10. CORS (Cross-Origin Resource Sharing)
-
-**What it is:**  
-Browsers block requests from one origin (e.g. `localhost:5173`) to a different origin (e.g. `localhost:5000`) unless the server explicitly allows it. CORS headers tell the browser "this origin is allowed".
-
-**Viva Q: Why do we need CORS?**  
-> Our React frontend runs on port 5173 and the API on port 5000 — different origins. Without CORS headers, the browser refuses to send the request. The `cors` package adds the right `Access-Control-Allow-Origin` headers.
-
----
-
-## 11. Rate Limiting
-
-**What it is:**  
-Restricting how many requests an IP can make in a time window. We apply it only to auth routes (10 requests per 15 minutes).
-
-**Viva Q: Why rate-limit auth endpoints?**  
-> Without rate limiting, an attacker can try thousands of password guesses per minute (brute force). Rate limiting makes this impractical — after 10 wrong attempts, the IP is blocked for 15 minutes.
-
----
-
-## 12. Pagination
-
-**What it is:**  
-Instead of returning all 100,000 students at once, we return a page at a time.
-
-```js
-const skip = (page - 1) * limit;
-Student.find(filter).skip(skip).limit(limit);
+```javascript
+const topRecommendations = await Prediction.aggregate([
+  // STAGE 1: $lookup to join student details
+  {
+    $lookup: {
+      from: 'students',
+      localField: 'student',
+      foreignField: '_id',
+      as: 'studentDoc',
+    },
+  },
+  // STAGE 2: $unwind joined studentDoc
+  { $unwind: '$studentDoc' },
+  // STAGE 3: $match teacher scoping
+  {
+    $match: req.user.role === 'teacher'
+      ? { 'studentDoc.assignedTeacher': req.user._id }
+      : {},
+  },
+  // STAGE 4: $sort by createdAt descending (newest predictions first)
+  { $sort: { createdAt: -1 } },
+  // STAGE 5: $group by student, picking only their LATEST prediction ($first)
+  {
+    $group: {
+      _id: '$student',
+      latestPrediction: { $first: '$$ROOT' },
+    },
+  },
+  // STAGE 6: $unwind the recommendations array of that latest prediction only
+  { $unwind: '$latestPrediction.recommendations' },
+  // STAGE 7: $group by recommendation string and count across students
+  {
+    $group: {
+      _id: '$latestPrediction.recommendations',
+      count: { $sum: 1 },
+    },
+  },
+  // STAGE 8: $sort descending by frequency
+  { $sort: { count: -1 } },
+  // STAGE 9: $limit top 5
+  { $limit: 5 },
+]);
 ```
 
-**Viva Q: How does pagination work in Mongoose?**  
-> `.skip(n)` skips the first n documents, `.limit(m)` returns at most m documents. For page 3 with limit 10: skip = (3-1)*10 = 20, so documents 21–30 are returned. We also return `total` and `totalPages` so the frontend can render page controls.
+#### Line-by-Line Explanation:
+1. `Stages 1–3` — Joins the student document and scopes to the teacher's students.
+2. `STAGE 4: { $sort: { createdAt: -1 } }` — Orders predictions newest first.
+3. `STAGE 5: { $group: { _id: '$student', latestPrediction: { $first: '$$ROOT' } } }` — **Crucial deduplication step!** Groups predictions by student ID. Because the stream was sorted newest first, `{ $first: '$$ROOT' }` retains ONLY the student's most recent prediction and discards older historical predictions.
+4. `STAGE 6: { $unwind: '$latestPrediction.recommendations' }` — Unwinds the recommendations array from only that latest prediction into separate documents.
+5. `STAGE 7: { $group: { _id: '$latestPrediction.recommendations', count: { $sum: 1 } } }` — Groups by the recommendation text and counts occurrences across students.
+6. `STAGE 8 & 9` — Sorts descending by count and limits the output to the top 5 reasons.
 
 ---
 
-## 13. Teacher Scoping Pattern
+## 4. Improvement Tracking Logic (`GET /api/interventions/:id/impact`)
 
-```js
-// In every list/get query:
-if (req.user.role === 'teacher') {
-  filter.assignedTeacher = req.user._id;
-}
+**How it works:**
+1. An intervention has a `startDate`.
+2. All assessments for the student are split into two groups based on the intervention date:
+   - **Before:** `date < startDate`
+   - **After:** `date >= startDate`
+3. If `beforeDocs.length === 0 || afterDocs.length === 0`:
+   - Returns `verdict: "insufficient data"`
+   - Returns `before: null`, `after: null`, `delta: null` (never NaN or 0)
+   - Returns a clear human-readable message specifying whether assessments were missing before, after, or both.
+4. If assessments exist on both sides:
+   - Computes percentage score for each assessment: `(score / maxScore) * 100`.
+   - Computes average percentage for both groups: `delta = afterAvg - beforeAvg`.
+   - **Verdict criteria:**
+     - `delta > 3` → `'improved'`
+     - `delta < -3` → `'declined'`
+     - otherwise → `'no clear change'`
+
+**Viva Q: Why compare percentage score rather than raw score in impact tracking?**  
+> Assessments have different `maxScore` values (e.g., a quiz out of 20 vs an exam out of 100). Converting all scores to a normalized percentage `(score / maxScore) * 100` allows fair before-and-after comparison.
+
+---
+
+## 5. Denormalisation on Student Document
+
+When a prediction is saved:
+```javascript
+await Student.findByIdAndUpdate(student._id, {
+  latestPredictedScore: score,
+  latestRiskLevel: riskLevel,
+});
 ```
 
-**Why not check in the route?**  
-The logic lives in the controller where the DB query is built — this is the right place. The route only maps URLs to controllers.
-
-**Viva Q: How do you ensure a teacher cannot see another teacher's students?**  
-> Every query adds `assignedTeacher: req.user._id` to the filter when the caller is a teacher. MongoDB only returns documents matching that filter, so records belonging to other teachers are never returned.
+**Viva Q: Why duplicate latestRiskLevel onto the Student model instead of querying the Prediction collection?**  
+> Query optimization. The student list endpoint supports pagination, text search, and filtering by risk level (`?riskLevel=High`). If risk level was only in the `predictions` collection, listing students filtered by risk would require joining collections or performing two queries on every page load. Caching `latestRiskLevel` on `Student` allows an indexed, single-query filter.
 
 ---
 
-## 14. latestRiskLevel — Denormalisation
+## 6. Likely Viva Questions & Answers
 
-**Why store risk level on the Student document?**  
-If we didn't, filtering students by `riskLevel=High` would require joining (`populate`) the Prediction collection and filtering in JavaScript — slow for 100,000 students.
+**Q: What is the difference between `$match` in an aggregation pipeline and `find()`?**  
+> `find()` queries documents and returns them directly to the Node.js application. `$match` is a pipeline stage inside the database engine that filters documents before passing them to downstream stages (like `$group` or `$sort`), reducing memory and network overhead.
 
-By caching `latestRiskLevel` and `latestPredictedScore` on the Student document, we can filter and sort at the database level in one fast query.
+**Q: What does `$unwind` do in MongoDB?**  
+> `$unwind` deconstructs an array field from input documents to output a document for each element in the array. For example, if an array has 3 elements, `$unwind` produces 3 documents.
 
-**Viva Q: What is denormalisation and when is it acceptable?**  
-> Denormalisation means storing redundant data in multiple places to avoid expensive joins. It is acceptable when: the data is read far more often than it is written, and consistency can be maintained (we update it atomically whenever a prediction is saved).
+**Q: What is the purpose of `$lookup`?**  
+> `$lookup` performs an equality match (left outer join) between fields in the current collection and a target collection, attaching matching documents as an array.
 
----
+**Q: How do you prevent a teacher from accessing another teacher's student in nested endpoints?**  
+> We use the `getOwnedStudent(studentId, req.user)` helper. It verifies that the student exists and, if the logged-in user has role `'teacher'`, confirms that `student.assignedTeacher.toString() === req.user._id.toString()`. If not, it returns `403 Forbidden`.
 
-## Likely Additional Viva Questions
-
-**Q: What HTTP status codes do you use and why?**  
-> 200 OK (success), 201 Created (new resource), 400 Bad Request (validation error), 401 Unauthorized (not authenticated), 403 Forbidden (authenticated but not allowed), 404 Not Found, 409 Conflict (duplicate), 429 Too Many Requests, 500 Server Error.
-
-**Q: What is `express-validator` and how do you use it?**  
-> It is a middleware library that validates request body/query/params using a chain of rules (e.g. `body('email').isEmail()`). We call `validationResult(req)` in the controller to check for errors and return 400 if any exist.
-
-**Q: What is an ODM?**  
-> Object Document Mapper — maps JavaScript objects to MongoDB documents. Mongoose is the ODM. The equivalent for SQL is an ORM (Object Relational Mapper).
-
-**Q: What does `{ new: true, runValidators: true }` do in `findByIdAndUpdate`?**  
-> `new: true` makes Mongoose return the updated document (not the old one). `runValidators: true` applies the schema's validation rules to the update — without it, Mongoose skips validation on updates.
+**Q: Why do we clamp predicted scores to 0–100?**  
+> Regression models can occasionally output values slightly below 0 or above 100 due to extreme feature values. Clamping with `Math.min(100, Math.max(0, score))` guarantees that exam scores stay within realistic boundaries.

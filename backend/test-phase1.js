@@ -1,10 +1,13 @@
 /**
  * test-phase1.js — Phase 1 endpoint tests
- * Uses unique-per-run emails/studentIds (timestamp suffix) so the test is re-runnable.
+ * Self-cleaning: cleans up all test users and students created during the test run
+ * so no residue is left in the database.
  * Run with: node test-phase1.js  (server must be running on port 5000)
  */
 
 const http = require('http');
+const mongoose = require('mongoose');
+require('dotenv').config();
 
 let pass = 0, fail = 0;
 
@@ -39,7 +42,6 @@ function check(label, condition, got) {
 }
 
 async function run() {
-  // Unique suffix so this test is fully re-runnable without manual DB cleanup
   const ts = Date.now();
   const EMAIL_ALICE = `alice_${ts}@school.com`;
   const EMAIL_HACK  = `hack_${ts}@x.com`;
@@ -219,6 +221,27 @@ async function run() {
   check('200 OK',    search.status === 200, search.status);
   check('finds Bob', search.body.data?.students?.some(s => s.name === 'Bob Smith'),
     search.body.data?.students?.map(s => s.name));
+
+  // ── Teardown / Cleanup ─────────────────────────────────────────────────────
+  console.log('\n【Cleanup】 Removing test records...');
+  try {
+    let uri = process.env.MONGO_URI;
+    if (process.env.NODE_ENV === 'test') {
+      uri = process.env.MONGO_URI_TEST || uri.replace(/\/performiq(\?|$)/, '/performiq_test$1');
+    }
+    await mongoose.connect(uri);
+    const db = mongoose.connection.db;
+    await db.collection('students').deleteMany({
+      $or: [{ studentId: STU_ID }, { name: 'Bob Smith' }],
+    });
+    await db.collection('users').deleteMany({
+      email: { $in: [EMAIL_ALICE, EMAIL_HACK] },
+    });
+    console.log('  ✅ Cleaned up created test students and users.');
+    await mongoose.disconnect();
+  } catch (cleanErr) {
+    console.warn('  ⚠ Cleanup notice:', cleanErr.message);
+  }
 
   // ── Summary ────────────────────────────────────────────────────────────────
   console.log('\n══════════════════════════════════════════');

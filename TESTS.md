@@ -1,38 +1,45 @@
 # TESTS.md — How to Test Every Endpoint
 
-All examples use `curl`. Replace `TOKEN` with the JWT returned by login/register.
+All examples use standard `curl`. Replace `TOKEN` with the JWT returned by login/register.
 
 ---
 
-## 0. Health Check
+## 0. Automated Test Suites & Database Isolation
 
+Both test suites are **self-cleaning**: they automatically remove all test users, students, assessments, predictions, and interventions created during the run, leaving zero residue in the database.
+
+From the `backend/` directory:
 ```bash
-curl http://localhost:5000/api/health
+node test-phase1.js   # Runs Phase 1 test suite (Auth & Student CRUD)
+node test-phase2.js   # Runs Phase 2 test suite (Assessments, Predict, Interventions, Impact, Dashboard)
 ```
-**Expected:**
-```json
-{ "success": true, "message": "PerformIQ API is running" }
+
+To run against a dedicated test database (e.g. `performiq_test`):
+```bash
+# In Bash:
+NODE_ENV=test node test-phase1.js
+NODE_ENV=test node test-phase2.js
+
+# In PowerShell:
+$env:NODE_ENV="test"; node test-phase1.js; node test-phase2.js; Remove-Item Env:\NODE_ENV
+```
+
+### Manual Database Clean-Up Tool
+If any test data was previously created and you want to clean it up:
+```bash
+node scripts/cleanTestData.js
 ```
 
 ---
 
-## 1. Auth
+## 1. Authentication
 
-### Register (creates a teacher account)
+### Register (Teacher)
 ```bash
 curl -X POST http://localhost:5000/api/auth/register \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"Alice Teacher\", \"email\": \"alice@school.com\", \"password\": \"secret123\"}"
 ```
-**Expected:** 201, body contains `token` and `user` with `role: "teacher"`
-
-**Security check — role cannot be injected:**
-```bash
-curl -X POST http://localhost:5000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d "{\"name\": \"Hacker\", \"email\": \"hack@x.com\", \"password\": \"secret123\", \"role\": \"admin\"}"
-```
-**Expected:** 201 but `role` in response is still `"teacher"`, not `"admin"` ✅
 
 ### Login
 ```bash
@@ -40,56 +47,27 @@ curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
   -d "{\"email\": \"alice@school.com\", \"password\": \"secret123\"}"
 ```
-**Expected:** 200, body contains `token`
 
-**Wrong password (same message as wrong email):**
+### Save Token to Environment Variable (Bash / PowerShell)
 ```bash
-curl -X POST http://localhost:5000/api/auth/login \
+# In Bash:
+TOKEN=$(curl -s -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d "{\"email\": \"alice@school.com\", \"password\": \"wrongpassword\"}"
-```
-**Expected:** 401, `"message": "Invalid email or password"` ✅
+  -d "{\"email\":\"alice@school.com\",\"password\":\"secret123\"}" | jq -r '.data.token')
 
-**Wrong email:**
-```bash
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d "{\"email\": \"nobody@x.com\", \"password\": \"secret123\"}"
-```
-**Expected:** 401, same message `"Invalid email or password"` ✅
-
-### Get Current User
-```bash
-curl http://localhost:5000/api/auth/me \
-  -H "Authorization: Bearer TOKEN"
-```
-**Expected:** 200, user object without `passwordHash`
-
-### Rate limiting
-```bash
-# Run this 11 times quickly — the 11th should return 429
-for i in 1 2 3 4 5 6 7 8 9 10 11; do
-  curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:5000/api/auth/login \
-    -H "Content-Type: application/json" \
-    -d "{\"email\": \"x@x.com\", \"password\": \"x\"}"
-done
+# In PowerShell:
+$resp = curl.exe -s -X POST http://localhost:5000/api/auth/login -H "Content-Type: application/json" -d '{\"email\":\"alice@school.com\",\"password\":\"secret123\"}' | ConvertFrom-Json
+$TOKEN = $resp.data.token
 ```
 
 ---
 
-## 2. Students
+## 2. Students CRUD
 
-> Save your token first:
-> ```bash
-> TOKEN=$(curl -s -X POST http://localhost:5000/api/auth/login \
->   -H "Content-Type: application/json" \
->   -d "{\"email\":\"alice@school.com\",\"password\":\"secret123\"}" | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).data.token))")
-> ```
-
-### Create a student
+### Create Student
 ```bash
 curl -X POST http://localhost:5000/api/students \
-  -H "Authorization: Bearer TOKEN" \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{
     \"studentId\": \"STU_000001\",
@@ -98,10 +76,10 @@ curl -X POST http://localhost:5000/api/students \
     \"gender\": \"Male\",
     \"education_level\": \"High School\",
     \"school_type\": \"Public\",
-    \"attendance_percentage\": 72,
+    \"attendance_percentage\": 70,
     \"assignment_completion_rate\": 55,
     \"study_hours_per_day\": 1.5,
-    \"sleep_hours\": 5.5,
+    \"sleep_hours\": 5,
     \"exam_anxiety_level\": 9.8,
     \"previous_exam_score\": 48,
     \"revision_frequency\": \"Rarely\",
@@ -111,91 +89,189 @@ curl -X POST http://localhost:5000/api/students \
     \"time_management_score\": 60
   }"
 ```
-**Expected:** 201, student object. `assignedTeacher` is auto-set to Alice's ID. ✅
 
-### List students (paginated)
+### List Students (with Pagination & Filter)
 ```bash
-curl "http://localhost:5000/api/students?page=1&limit=5" \
-  -H "Authorization: Bearer TOKEN"
+curl "http://localhost:5000/api/students?page=1&limit=10&riskLevel=High" \
+  -H "Authorization: Bearer $TOKEN"
 ```
-
-### Search by name
-```bash
-curl "http://localhost:5000/api/students?search=Bob" \
-  -H "Authorization: Bearer TOKEN"
-```
-
-### Filter by risk level
-```bash
-curl "http://localhost:5000/api/students?riskLevel=High" \
-  -H "Authorization: Bearer TOKEN"
-```
-*(returns empty until a prediction is saved — Phase 3)*
-
-### Sort by name ascending
-```bash
-curl "http://localhost:5000/api/students?sortBy=name&order=asc" \
-  -H "Authorization: Bearer TOKEN"
-```
-
-### Get one student
-```bash
-curl http://localhost:5000/api/students/STUDENT_ID \
-  -H "Authorization: Bearer TOKEN"
-```
-
-### Update a student
-```bash
-curl -X PUT http://localhost:5000/api/students/STUDENT_ID \
-  -H "Authorization: Bearer TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"attendance_percentage\": 85, \"study_hours_per_day\": 3}"
-```
-
-### Delete (admin only)
-```bash
-# This will fail (403) if TOKEN belongs to a teacher
-curl -X DELETE http://localhost:5000/api/students/STUDENT_ID \
-  -H "Authorization: Bearer TOKEN"
-```
-**Expected with teacher token:** 403 Forbidden ✅  
-**Expected with admin token:** 200 Student deleted
 
 ---
 
-## 3. Auth middleware checks
+## 3. Assessments
 
-### No token
+### Add Assessment Before Intervention
 ```bash
-curl http://localhost:5000/api/students \
-  -H "Authorization: Bearer invalidtoken"
+curl -X POST http://localhost:5000/api/students/STUDENT_ID/assessments \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"Diagnostic Quiz 1\",
+    \"type\": \"Quiz\",
+    \"score\": 40,
+    \"maxScore\": 100,
+    \"date\": \"2025-01-15\"
+  }"
 ```
-**Expected:** 401 "Invalid or expired token"
 
-### Missing token
+### Add Assessment After Intervention
 ```bash
-curl http://localhost:5000/api/students
+curl -X POST http://localhost:5000/api/students/STUDENT_ID/assessments \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"Post-Intervention Quiz 2\",
+    \"type\": \"Quiz\",
+    \"score\": 80,
+    \"maxScore\": 100,
+    \"date\": \"2025-03-25\"
+  }"
 ```
-**Expected:** 401 "Not authenticated"
+
+### List Assessments for a Student
+```bash
+curl http://localhost:5000/api/students/STUDENT_ID/assessments \
+  -H "Authorization: Bearer $TOKEN"
+```
 
 ---
 
-## 4. Validation checks
+## 4. Predictions & Recommendations
 
-### Invalid enum value
+### Create Prediction (Manual Score in Phase 2)
 ```bash
-curl -X POST http://localhost:5000/api/students \
-  -H "Authorization: Bearer TOKEN" \
+curl -X POST http://localhost:5000/api/students/STUDENT_ID/predict \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"studentId\": \"STU_X\", \"name\": \"Test\", \"gender\": \"Unknown\"}"
+  -d "{\"predictedScore\": 45}"
 ```
-**Expected:** 400 "gender must be Female, Male or Other"
+**Expected Response:**
+- `riskLevel`: `"High"` (since score < 50)
+- `recommendations`: Up to 4 tailored action strings based on student's low attendance, sleep, study hours, etc.
+- Also updates `latestPredictedScore` and `latestRiskLevel` on the Student document!
 
-### Missing required field
+### Get Predictions for One Student
 ```bash
-curl -X POST http://localhost:5000/api/students \
-  -H "Authorization: Bearer TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"name\": \"No ID\"}"
+curl http://localhost:5000/api/students/STUDENT_ID/predictions \
+  -H "Authorization: Bearer $TOKEN"
 ```
-**Expected:** 400 "studentId is required"
+
+### Query High-Risk Predictions (Global)
+```bash
+curl "http://localhost:5000/api/predictions?risk=High" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## 5. Interventions & Impact Tracking
+
+### Create an Intervention
+```bash
+curl -X POST http://localhost:5000/api/interventions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"student\": \"STUDENT_ID\",
+    \"type\": \"Mentoring\",
+    \"description\": \"Weekly 1-on-1 academic coaching\",
+    \"startDate\": \"2025-02-01\",
+    \"status\": \"ongoing\"
+  }"
+```
+
+### Update Intervention Status
+```bash
+curl -X PATCH http://localhost:5000/api/interventions/INTERVENTION_ID \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"status\": \"completed\",
+    \"notes\": \"Student attended all sessions\",
+    \"outcome\": \"Attendance and confidence noticeably improved\"
+  }"
+```
+
+### Check Intervention Impact (Improvement Tracking)
+```bash
+curl http://localhost:5000/api/interventions/INTERVENTION_ID/impact \
+  -H "Authorization: Bearer $TOKEN"
+```
+**Expected Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "interventionId": "...",
+    "startDate": "2025-02-01T00:00:00.000Z",
+    "assessmentsBefore": 1,
+    "assessmentsAfter": 1,
+    "before": 40.0,
+    "after": 80.0,
+    "delta": 40.0,
+    "verdict": "improved"
+  }
+}
+```
+*Note: If delta > 3 → `improved`; delta < -3 → `declined`; else → `no clear change`.*
+
+**Expected Response when assessments are missing (Insufficient Data):**
+```json
+{
+  "success": true,
+  "message": "Insufficient data: no assessments recorded before the intervention start date.",
+  "data": {
+    "interventionId": "...",
+    "startDate": "2025-02-01T00:00:00.000Z",
+    "assessmentsBefore": 0,
+    "assessmentsAfter": 1,
+    "before": null,
+    "after": null,
+    "delta": null,
+    "verdict": "insufficient data"
+  }
+}
+```
+
+---
+
+## 6. Dashboard Summary (Aggregation Pipeline)
+
+```bash
+curl http://localhost:5000/api/dashboard/summary \
+  -H "Authorization: Bearer $TOKEN"
+```
+**Expected Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "students": {
+      "total": 5,
+      "byRiskLevel": {
+        "High": 2,
+        "Medium": 1,
+        "Low": 1,
+        "unassessed": 1
+      },
+      "avgPredictedScore": 54.33
+    },
+    "interventions": {
+      "planned": 1,
+      "ongoing": 2,
+      "completed": 1
+    },
+    "topRecommendations": [
+      {
+        "reason": "Attendance is below 75%. Regular class attendance is strongly linked to exam performance. Try to attend every session.",
+        "count": 3
+      },
+      {
+        "reason": "Daily study time is under 2 hours. Aim for at least 2–3 focused hours each day to build consistent understanding.",
+        "count": 3
+      }
+    ]
+  }
+}
+```
+*Teacher Scoping Check: For a teacher, metrics reflect ONLY their assigned students.*

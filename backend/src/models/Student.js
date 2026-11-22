@@ -122,6 +122,10 @@ const studentSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isSeeded: {
+      type: Boolean,
+      default: false,
+    },
 
     // --- Cached prediction (updated by POST /api/students/:id/predict) ---
     // Stored here so the student list can be filtered by risk without

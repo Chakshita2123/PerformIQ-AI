@@ -139,3 +139,49 @@ This runs `scripts/run-tests.js`, which guarantees `NODE_ENV=test`, verifies the
 - **Interventions**: `POST /api/interventions`, `GET /api/students/:id/interventions`, `PATCH /api/interventions/:id`
 - **Impact Tracking**: `GET /api/interventions/:id/impact` — Before vs after score delta & verdict (`improved`, `declined`, `no clear change`, `insufficient data`).
 - **Dashboard**: `GET /api/dashboard/summary` — Aggregation pipeline for student counts by risk level, average score, intervention statuses, and top 5 recommendation reasons (scoped to teacher).
+- **OULAD Early Warning & Benchmarks (Module 3)**:
+  - `GET /api/oulad/at-risk` — Paginated list of at-risk students, filterable by `risk_level`, `code_module`, and searchable by `id_student`.
+  - `GET /api/oulad/cutoff-results` — Benchmark performance (ROC_AUC, Recall, Precision) across cutoff days.
+  - `GET /api/oulad/engagement` — Weekly VLE click activity across course weeks by final outcome.
+
+---
+
+## Database Seeding (Phase 4)
+
+To populate the database with realistic data for development and demonstration:
+
+```powershell
+cd backend
+npm run seed
+```
+
+### What the Seeder Does
+1. **Safety Pre-Checks:** Refuses execution if `NODE_ENV=test` and confirms the FastAPI ML service is online.
+2. **Upserts Demo Accounts:** Upserts 1 Admin and 3 Teachers without changing their existing `_id`s.
+3. **Re-Run Safety:** Cleans previously seeded records (`{ isSeeded: true }`) and cascades deletion to all referencing predictions, assessments, and interventions without touching manual records.
+4. **Imports 5,000 Students:** Samples 5,000 rows deterministically from `final_student_exam_performance.csv` using a fixed PRNG (`SEED_RANDOM_SEED=42`), assigning realistic fake names, unique IDs (`STU_SEED_0001` .. `STU_SEED_5000`), and allocating them evenly across the 3 teachers. Literal `"None"` in `device_availability` is preserved.
+5. **Generates Live Predictions:** Obtains predictions through the ML service's `POST /predict-batch` endpoint in chunks of 200, caches `latestPredictedScore` and `latestRiskLevel`, and generates rule-based recommendations.
+6. **Generates Simulated Assessments:** Creates 4–6 past assessments per student (`isSimulated: true`) distributed across the past year.
+7. **Simulates Interventions & Outcomes:** Creates realistic interventions for High & Medium risk students (`isSimulated: true`) with guaranteed before/after assessments demonstrating diverse outcomes (improved vs declined).
+8. **Imports Module 3 OULAD Data:** Imports 2,244 at-risk student records (safely parsing stringified Python recommendations without `eval`), 7 cutoff benchmarks, and 35 weekly engagement trends.
+9. **Measures Real Storage:** Measures actual WiredTiger compressed storage usage on MongoDB Atlas.
+
+### Demo Logins
+> [!IMPORTANT]
+> The demo passwords below are provided for local development and grading purposes only. Before deploying publicly, you MUST change these passwords via the `.env` file (`DEMO_ADMIN_PASSWORD` and `DEMO_TEACHER_PASSWORD`).
+
+| Role | Name | Email | Default Demo Password |
+|---|---|---|---|
+| **Admin** | System Administrator | `admin@performiq.ai` | `AdminDemo123!` |
+| **Teacher 1** | Dr. Sarah Jenkins | `teacher1@performiq.ai` | `TeacherDemo123!` |
+| **Teacher 2** | Prof. Marcus Chen | `teacher2@performiq.ai` | `TeacherDemo123!` |
+| **Teacher 3** | Ms. Elena Rodriguez | `teacher3@performiq.ai` | `TeacherDemo123!` |
+
+> [!WARNING]
+> **Simulated Data Disclaimer:** All seeded past assessments and intervention outcomes are flagged with `isSimulated: true`. They are generated for demonstration, dashboard visualization, and UI evaluation purposes only. They do **NOT** reflect real-world intervention efficacy.
+
+### Atlas Free-Tier Storage Metrics
+- **Uncompressed Data Size:** ~14.44 MB
+- **Allocated Storage on Disk (WiredTiger compressed):** ~1.85 MB
+- **Index Size:** ~1.84 MB
+- **Total Atlas Storage Allocated:** ~3.69 MB out of 512 MB (**0.72%** of Free Tier quota)

@@ -176,3 +176,42 @@ If a student was predicted 3 times over the semester, older predictions are disc
 
 **Q: What is `missingFieldsCount` and why is it stored with each Prediction?**  
 > `missingFieldsCount` records how many of the 37 model input features were omitted or missing (`null`) when the prediction was generated. Tracking this allows the frontend UI to display confidence ratings (e.g. flagging predictions as "low confidence" when 10+ fields are missing and imputed) and provides transparency to teachers about data completeness.
+
+---
+
+## 7. Database Seeding & Production Engineering (Phase 4)
+
+### Deterministic Pseudo-Random Generation (PRNG)
+In JavaScript, `Math.random()` cannot be seeded. To ensure the seed script produces identical student samples, names, and simulated values on every re-run, we implemented **Mulberry32**, a fast, 32-bit state generator initialized from `SEED_RANDOM_SEED` (default: `42`).
+
+### Upserting vs Recreating Users
+When seeding demo users, deleting and re-inserting them would generate new MongoDB `_id` values on every run, breaking any existing references or saved JWT tokens. Instead, the script uses `User.findOneAndUpdate({ email }, { $set: ... }, { upsert: true, new: true })`. This keeps the existing `_id` intact across multiple seed runs.
+
+### Batch ML Predictions vs Single-Request Overhead
+Generating 5,000 predictions via individual HTTP calls (`POST /predict`) would require 5,000 separate TCP handshakes and round-trips (~2–5 minutes). By sending chunks of 200 students to `POST /predict-batch`, pandas constructs a 200-row DataFrame, scikit-learn runs vectorized batch inference, and network round-trips are reduced by 99.5%, completing all 5,000 predictions in seconds with a 30s timeout and automatic 1-retry resilience.
+
+### Safe String Parsing vs `eval()`
+In `data/performiq_oulad_at_risk.csv`, recommendations are formatted as Python list representations (e.g. `"['Missed 2+ assessments...', 'Low average score...']"`). Calling JavaScript's `eval()` on external file strings is a critical security vulnerability (Arbitrary Code Execution). We wrote `parsePythonList()`, a deterministic character scanner that safely extracts single- and double-quoted strings while respecting escape characters, achieving 100% parsing accuracy with zero `eval()` calls.
+
+### Real MongoDB Atlas Storage (WiredTiger Compression)
+MongoDB Atlas uses the **WiredTiger storage engine**, which applies Snappy compression to collections and prefix compression to indexes:
+- **`dataSize` (Uncompressed):** The logical size of all raw documents in memory (~14.44 MB).
+- **`storageSize` (On-Disk):** The actual compressed bytes written to disk (~1.85 MB, ~7.8x compression ratio).
+- **`indexSize`:** Space consumed by B-tree indexes (~1.84 MB).
+- **`totalSize`:** `storageSize + indexSize` (~3.69 MB). On Atlas Free Tier (M0, 512 MB limit), this accounts for only **0.72%** of total quota.
+
+---
+
+## 8. Likely Viva Questions & Answers (Phase 4)
+
+**Q: Why do you flag simulated assessments and interventions with `isSimulated: true`?**  
+> Academic integrity and data transparency. Simulated data is necessary during prototype development to populate dashboards and verify the `/impact` calculation logic. Flagging simulated records ensures they are never mistaken for real-world empirical findings regarding intervention efficacy.
+
+**Q: Why should `eval()` never be used to parse stringified Python lists from CSVs?**  
+> `eval()` executes any arbitrary JavaScript code contained in the string with the full privileges of the Node.js process. If the dataset were modified or user-supplied, it would allow Remote Code Execution (RCE). A dedicated string parser extracts items safely without executing code.
+
+**Q: How does the seed script prevent accidental deletion of manual student data?**  
+> The seeder marks all seeded students with `{ isSeeded: true }`. On re-run, it only selects and deletes students matching `{ isSeeded: true }` and cascades deletion strictly to predictions, assessments, and interventions referencing those specific IDs. Manually created students and teachers have `isSeeded: false` and are never touched.
+
+**Q: What is the difference between MongoDB `dataSize` and `storageSize`?**  
+> `dataSize` is the uncompressed logical volume of all BSON documents. `storageSize` is the physical disk space allocated by the WiredTiger storage engine, which compresses documents using Snappy. In PerformIQ, 14.44 MB of logical data occupies just 1.85 MB of disk space.

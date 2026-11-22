@@ -209,12 +209,97 @@ curl http://localhost:5000/api/dashboard/summary \
 
 ---
 
-## 6. Automated Test Suites & Verification
+## 6. OULAD Early Warning & Benchmarks (Module 3)
+
+### At-Risk Students List
+```bash
+curl "http://localhost:5000/api/oulad/at-risk?page=1&limit=10&code_module=BBB&risk_level=High%20Risk" \
+  -H "Authorization: Bearer $TOKEN"
+```
+**Expected Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "records": [
+      {
+        "id_student": 588713,
+        "code_module": "BBB",
+        "risk_prob": 0.99,
+        "risk_level": "High Risk",
+        "total_clicks": 9,
+        "click_change": 0,
+        "n_missed": 3,
+        "avg_score": null,
+        "score_trend": null,
+        "recommendations": [
+          "Missed 2+ assessments -> deadline reminders, contact tutor",
+          "Very low platform activity -> encourage use of course materials"
+        ]
+      }
+    ],
+    "pagination": {
+      "total": 574,
+      "page": 1,
+      "pages": 58,
+      "limit": 10
+    }
+  }
+}
+```
+
+### Search by Student ID
+```bash
+curl "http://localhost:5000/api/oulad/at-risk?search=425136" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Cutoff Benchmark Performance (ROC-AUC / Recall / Precision)
+```bash
+curl http://localhost:5000/api/oulad/cutoff-results \
+  -H "Authorization: Bearer $TOKEN"
+```
+**Expected Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "cutoff_day": 0,
+        "students": 29496,
+        "at_risk_share": 0.478,
+        "ROC_AUC": 0.712,
+        "Recall": 0.599,
+        "Precision": 0.658
+      },
+      {
+        "cutoff_day": 20,
+        "students": 27913,
+        "at_risk_share": 0.449,
+        "ROC_AUC": 0.758,
+        "Recall": 0.568,
+        "Precision": 0.694
+      }
+    ]
+  }
+}
+```
+
+### Weekly Engagement Trends
+```bash
+curl http://localhost:5000/api/oulad/engagement \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## 7. Automated Test Suites & Verification
 
 ### Test Summary
 - **Phase 1 Test Suite (`test-phase1.js`):** 41 assertions passed
-- **Phase 2 & 3 Test Suite (`test-phase2.js`):** 76 assertions passed
-- **Total Assertions:** **117 passed, 0 failed**
+- **Phase 2, 3 & 4 Test Suite (`test-phase2.js`):** 90 assertions passed (including OULAD endpoint testing)
+- **Total Assertions:** **131 passed, 0 failed**
 - **Test Database:** strictly `performiq_test` via `scripts/run-tests.js`
 
 ### ML Model Parity & Imputation Verification (`scripts/verifyPrediction.py`)

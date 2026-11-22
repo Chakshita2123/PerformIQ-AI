@@ -26,6 +26,7 @@ const assessmentSchema = new mongoose.Schema(
     maxScore: { type: Number, required: true, min: 1 },
     date: { type: Date, required: true },
     isSimulated: { type: Boolean, default: false },
+    isSeeded: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

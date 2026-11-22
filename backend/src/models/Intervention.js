@@ -39,6 +39,7 @@ const interventionSchema = new mongoose.Schema(
     notes: { type: String, trim: true, maxlength: 2000 },
     outcome: { type: String, trim: true, maxlength: 1000 },
     isSimulated: { type: Boolean, default: false },
+    isSeeded: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

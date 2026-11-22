@@ -12,6 +12,7 @@ const assessmentRoutes = require('./src/routes/assessmentRoutes');
 const { studentRouter: predStudentRouter, globalRouter: predGlobalRouter } = require('./src/routes/predictionRoutes');
 const { router: interventionRouter, studentRouter: interventionStudentRouter } = require('./src/routes/interventionRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
+const ouladRoutes = require('./src/routes/ouladRoutes');
 const errorHandler = require('./src/middleware/errorHandler');
 
 // --- Database ---
@@ -61,6 +62,9 @@ app.use('/api/students/:studentId/interventions', interventionStudentRouter);
 
 // Dashboard
 app.use('/api/dashboard', dashboardRoutes);
+
+// OULAD early warning & benchmarks (Module 3)
+app.use('/api/oulad', ouladRoutes);
 
 // Health check — returns running status, connected database, and environment
 app.get('/api/health', (req, res) => {

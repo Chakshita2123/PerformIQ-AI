@@ -344,6 +344,98 @@ async function run() {
   check('missingFieldsCount tracked', typeof pNone.body.data?.prediction?.missingFieldsCount === 'number' &&
     pNone.body.data?.prediction?.missingFieldsCount >= 1, pNone.body.data?.prediction?.missingFieldsCount);
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // 5. OULAD EARLY WARNING & BENCHMARKS (MODULE 3)
+  // ══════════════════════════════════════════════════════════════════════════
+  console.log('\n【24】 Insert OULAD test fixtures into performiq_test');
+  await mongoose.connect(uri);
+  const dbTest = mongoose.connection.db;
+
+  const testOuladIds = [999901, 999902, 999903];
+  await dbTest.collection('ouladrecords').insertMany([
+    {
+      id_student: 999901,
+      code_module: 'BBB',
+      risk_prob: 0.95,
+      risk_level: 'High Risk',
+      total_clicks: 120,
+      click_change: -10,
+      n_missed: 2,
+      avg_score: 45,
+      score_trend: -5,
+      recommendations: ['Missed 2+ assessments -> deadline reminders', 'Low average score -> remedial practice'],
+      isSeeded: false,
+    },
+    {
+      id_student: 999902,
+      code_module: 'DDD',
+      risk_prob: 0.75,
+      risk_level: 'Medium Risk',
+      total_clicks: 340,
+      click_change: 5,
+      n_missed: 1,
+      avg_score: 58,
+      score_trend: 2,
+      recommendations: ['Low average score -> subject guidance'],
+      isSeeded: false,
+    },
+    {
+      id_student: 999903,
+      code_module: 'BBB',
+      risk_prob: 0.30,
+      risk_level: 'Low Risk',
+      total_clicks: 650,
+      click_change: 20,
+      n_missed: 0,
+      avg_score: 75,
+      score_trend: 8,
+      recommendations: [],
+      isSeeded: false,
+    },
+  ]);
+
+  await dbTest.collection('ouladcutoffs').insertMany([
+    { cutoff_day: 0, students: 29496, at_risk_share: 0.478, ROC_AUC: 0.712, Recall: 0.599, Precision: 0.658, isSeeded: false },
+    { cutoff_day: 20, students: 27913, at_risk_share: 0.449, ROC_AUC: 0.758, Recall: 0.568, Precision: 0.694, isSeeded: false },
+  ]);
+
+  await dbTest.collection('ouladengagements').insertMany([
+    { week: 0, Distinction: 113.6, Fail: 44.7, Pass: 81.1, Withdrawn: 34.7, isSeeded: false },
+    { week: 1, Distinction: 101.5, Fail: 38.6, Pass: 73.9, Withdrawn: 30.0, isSeeded: false },
+  ]);
+  await mongoose.disconnect();
+  check('OULAD fixtures inserted', true, true);
+
+  console.log('\n【25】 GET /api/oulad/at-risk — list, filter & search');
+  const ouladAuthFail = await request('GET', '/api/oulad/at-risk', null, null);
+  check('401 Unauthorized without token', ouladAuthFail.status === 401, ouladAuthFail.status);
+
+  const ouladList = await request('GET', '/api/oulad/at-risk', null, token);
+  check('200 OK with token',            ouladList.status === 200,                              ouladList.status);
+  check('returns records array',         Array.isArray(ouladList.body.data?.records),          ouladList.body.data?.records);
+  check('returns pagination object',     !!ouladList.body.data?.pagination?.total,             ouladList.body.data?.pagination);
+
+  const ouladFilterMod = await request('GET', '/api/oulad/at-risk?code_module=BBB', null, token);
+  check('filters by code_module=BBB',   ouladFilterMod.body.data?.records?.every(r => r.code_module === 'BBB'), ouladFilterMod.body.data?.records);
+
+  const ouladFilterRisk = await request('GET', '/api/oulad/at-risk?risk_level=High%20Risk', null, token);
+  check('filters by risk_level=High Risk', ouladFilterRisk.body.data?.records?.every(r => r.risk_level === 'High Risk'), ouladFilterRisk.body.data?.records);
+
+  const ouladSearch = await request('GET', '/api/oulad/at-risk?search=999902', null, token);
+  check('finds student 999902',          ouladSearch.body.data?.records?.some(r => r.id_student === 999902), ouladSearch.body.data?.records);
+
+  console.log('\n【26】 GET /api/oulad/cutoff-results');
+  const cutoffRes = await request('GET', '/api/oulad/cutoff-results', null, token);
+  check('200 OK',                        cutoffRes.status === 200,                             cutoffRes.status);
+  check('returns results array',         Array.isArray(cutoffRes.body.data?.results) && cutoffRes.body.data?.results?.length >= 2, cutoffRes.body.data?.results?.length);
+  check('has ROC_AUC metric',            typeof cutoffRes.body.data?.results?.[0]?.ROC_AUC === 'number', cutoffRes.body.data?.results?.[0]?.ROC_AUC);
+
+  console.log('\n【27】 GET /api/oulad/engagement');
+  const engageRes = await request('GET', '/api/oulad/engagement', null, token);
+  check('200 OK',                        engageRes.status === 200,                             engageRes.status);
+  check('returns engagement array',      Array.isArray(engageRes.body.data?.engagement) && engageRes.body.data?.engagement?.length >= 2, engageRes.body.data?.engagement?.length);
+  check('has Distinction metric',        typeof engageRes.body.data?.engagement?.[0]?.Distinction === 'number', engageRes.body.data?.engagement?.[0]?.Distinction);
+
   // ── Teardown / Cleanup ─────────────────────────────────────────────────────
   console.log('\n【Cleanup】 Removing test records...');
   try {
@@ -357,7 +449,12 @@ async function run() {
     await db.collection('students').deleteMany({ _id: { $in: testStudentIds } });
     await db.collection('users').deleteMany({ email: { $in: [EMAIL_T1, EMAIL_T2, EMAIL_ADMIN] } });
 
-    console.log('  ✅ Cleaned up created test assessments, predictions, interventions, students, and users.');
+    // Clean up OULAD test fixtures
+    await db.collection('ouladrecords').deleteMany({ id_student: { $in: testOuladIds } });
+    await db.collection('ouladcutoffs').deleteMany({ cutoff_day: { $in: [0, 20] }, isSeeded: false });
+    await db.collection('ouladengagements').deleteMany({ week: { $in: [0, 1] }, isSeeded: false });
+
+    console.log('  ✅ Cleaned up created test assessments, predictions, interventions, students, OULAD fixtures, and users.');
     await mongoose.disconnect();
   } catch (cleanErr) {
     console.warn('  ⚠ Cleanup notice:', cleanErr.message);

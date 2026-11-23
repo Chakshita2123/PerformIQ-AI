@@ -1,0 +1,284 @@
+{
+  "info": {
+    "name": "PerformIQ API",
+    "_postman_id": "performiq-collection-v1",
+    "description": "Complete API collection for PerformIQ-AI. After running the Login request, the JWT token is automatically saved to the {{token}} environment variable and used by all subsequent requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:5000/api", "type": "string" },
+    { "key": "token",    "value": "",                          "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (saves token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.success && json.data && json.data.token) {",
+                  "  pm.collectionVariables.set('token', json.data.token);",
+                  "  console.log('Token saved:', json.data.token.substring(0, 20) + '...');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@performiq.dev\",\n  \"password\": \"AdminDemo123!\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Get current user",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth", "me"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/dashboard/summary", "host": ["{{base_url}}"], "path": ["dashboard", "summary"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Students",
+      "item": [
+        {
+          "name": "List students (page 1)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/students?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["students"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List students (High risk)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/students?riskLevel=High&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["students"],
+              "query": [
+                { "key": "riskLevel", "value": "High" },
+                { "key": "page",      "value": "1" },
+                { "key": "limit",     "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get student by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/students/:id", "host": ["{{base_url}}"], "path": ["students", ":id"] }
+          }
+        },
+        {
+          "name": "Create student",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"age\": 20,\n  \"gender\": \"Female\",\n  \"previous_exam_score\": 65,\n  \"attendance_percentage\": 80,\n  \"study_hours_per_day\": 3\n}"
+            },
+            "url": { "raw": "{{base_url}}/students", "host": ["{{base_url}}"], "path": ["students"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Predictions",
+      "item": [
+        {
+          "name": "Run prediction for student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/students/:id/predict", "host": ["{{base_url}}"], "path": ["students", ":id", "predict"] }
+          }
+        },
+        {
+          "name": "Get prediction history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/students/:id/predictions", "host": ["{{base_url}}"], "path": ["students", ":id", "predictions"] }
+          }
+        },
+        {
+          "name": "Global prediction list (admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/predictions", "host": ["{{base_url}}"], "path": ["predictions"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Assessments",
+      "item": [
+        {
+          "name": "List assessments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/students/:id/assessments", "host": ["{{base_url}}"], "path": ["students", ":id", "assessments"] }
+          }
+        },
+        {
+          "name": "Record assessment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"score\": 72.5,\n  \"date\": \"2026-11-01\",\n  \"notes\": \"Midterm exam\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/students/:id/assessments", "host": ["{{base_url}}"], "path": ["students", ":id", "assessments"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Interventions",
+      "item": [
+        {
+          "name": "List interventions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/interventions?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["interventions"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create intervention",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"student\": \"<student ObjectId>\",\n  \"type\": \"Academic Support\",\n  \"description\": \"Weekly tutoring sessions\",\n  \"startDate\": \"2026-11-01\",\n  \"status\": \"ongoing\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/interventions", "host": ["{{base_url}}"], "path": ["interventions"] }
+          }
+        },
+        {
+          "name": "Update intervention status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"status\": \"completed\" }"
+            },
+            "url": { "raw": "{{base_url}}/interventions/:id", "host": ["{{base_url}}"], "path": ["interventions", ":id"] }
+          }
+        },
+        {
+          "name": "Intervention impact",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/interventions/:id/impact", "host": ["{{base_url}}"], "path": ["interventions", ":id", "impact"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "OULAD Early Warning",
+      "item": [
+        {
+          "name": "OULAD analytics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/oulad/analytics", "host": ["{{base_url}}"], "path": ["oulad", "analytics"] }
+          }
+        },
+        {
+          "name": "OULAD at-risk students",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/oulad/at-risk", "host": ["{{base_url}}"], "path": ["oulad", "at-risk"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Backend health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "ML service health",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:8000/health", "host": ["http://localhost:8000"], "path": ["health"] }
+          }
+        }
+      ]
+    }
+  ]
+}

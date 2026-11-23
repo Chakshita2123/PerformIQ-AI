@@ -90,10 +90,10 @@ async function main() {
       process.stderr.write('  [Server Error] ' + d.toString());
     });
 
-    // Wait until server is ready
+    // Wait until server is ready (up to 45 s — Atlas cold connections can take ~20 s)
     let attempts = 0;
     let ready = false;
-    while (attempts < 30) {
+    while (attempts < 90) {
       await new Promise((r) => setTimeout(r, 500));
       const s = await checkServer();
       if (s.running && s.db === 'performiq_test') {
@@ -104,7 +104,7 @@ async function main() {
       attempts++;
     }
     if (!ready) {
-      throw new Error('Test server failed to start or connect to performiq_test within 15 seconds.');
+      throw new Error('Test server failed to start or connect to performiq_test within 45 seconds.');
     }
   }
 

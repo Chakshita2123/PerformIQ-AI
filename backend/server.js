@@ -1,5 +1,31 @@
 require('dotenv').config(); // load .env first, before anything else
 
+// ── Production safety check ───────────────────────────────────────────────────
+// Refuse to start in production if secrets are still set to demo/default values.
+if (process.env.NODE_ENV === 'production') {
+  const DEFAULT_JWT         = 'your_super_secret_jwt_key_here';
+  const DEFAULT_ADMIN_PASS  = 'AdminDemo123!';
+  const DEFAULT_TEACHER_PASS = 'TeacherDemo123!';
+
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === DEFAULT_JWT) {
+    console.error(
+      'FATAL: JWT_SECRET is not set or uses the default demo value. ' +
+      'Set a strong secret before deploying.'
+    );
+    process.exit(1);
+  }
+  if (
+    process.env.DEMO_ADMIN_PASSWORD   === DEFAULT_ADMIN_PASS ||
+    process.env.DEMO_TEACHER_PASSWORD === DEFAULT_TEACHER_PASS
+  ) {
+    console.error(
+      'FATAL: Demo passwords still use default values. ' +
+      'Change DEMO_ADMIN_PASSWORD and DEMO_TEACHER_PASSWORD before deploying.'
+    );
+    process.exit(1);
+  }
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -42,7 +68,9 @@ app.use(
 );
 
 // --- Logging ---
-app.use(morgan('dev'));
+// Use 'combined' format in production (Apache-style, includes IP, referrer, user-agent)
+// and the more readable 'dev' format locally.
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // --- Body parsing ---
 app.use(express.json());

@@ -236,9 +236,6 @@ const getDashboardSummary = async (req, res, next) => {
           avgPredictedScore: stats.avgPredictedScore
             ? parseFloat(stats.avgPredictedScore.toFixed(2))
             : null,
-          averagePredictedScore: stats.avgPredictedScore
-            ? parseFloat(stats.avgPredictedScore.toFixed(2))
-            : null,
         },
         interventions: {
           ...interventionCounts,

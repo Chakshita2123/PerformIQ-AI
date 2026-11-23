@@ -39,11 +39,15 @@ const errorHandler = (err, req, res, next) => {
     return res.status(401).json({ success: false, message: 'Token expired' });
   }
 
-  // Default: use the status code attached to the error or 500
+  // Default: use the status code attached to the error or 500.
+  // In production, never leak raw error messages for unexpected 500s.
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     success: false,
-    message: err.message || 'Server error',
+    message:
+      process.env.NODE_ENV === 'production' && statusCode === 500
+        ? 'An unexpected error occurred'
+        : err.message || 'Server error',
   });
 };
 

@@ -176,8 +176,8 @@ export default function DashboardPage() {
             <Award className="w-4 h-4 text-indigo-500" />
           </div>
           <p className="text-2xl font-black text-slate-900">
-            {typeof (students?.avgPredictedScore ?? students?.averagePredictedScore) === 'number'
-              ? (students?.avgPredictedScore ?? students?.averagePredictedScore).toFixed(2)
+            {typeof students?.avgPredictedScore === 'number'
+              ? students.avgPredictedScore.toFixed(2)
               : 'N/A'}
           </p>
           <span className="text-[11px] text-emerald-600 mt-1 font-medium flex items-center gap-1">

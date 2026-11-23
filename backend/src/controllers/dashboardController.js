@@ -1,6 +1,7 @@
 const Student = require('../models/Student');
 const Intervention = require('../models/Intervention');
 const Prediction = require('../models/Prediction');
+const Assessment = require('../models/Assessment');
 const { getRecommendationLabel } = require('../utils/recommendations');
 
 /**
@@ -325,7 +326,164 @@ const getDashboardAttention = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/dashboard/followups
+ *
+ * Additive endpoint powering the 4-step pedagogical loop:
+ *   1. Identify: count of High-risk students in scope
+ *   2. Understand: count of High-risk students with no intervention assigned yet
+ *   3. Act: count of active (planned + ongoing) interventions
+ *   4. Review: count of ongoing interventions ready to review (startDate passed + >=1 post-assessment)
+ *
+ * Also returns the top 10 most recently active ready-to-review interventions with
+ * pre/post averages, delta, and impact verdicts calculated in batch (zero N+1 queries).
+ */
+const getDashboardFollowups = async (req, res, next) => {
+  try {
+    const isTeacher = req.user.role === 'teacher';
+    const studentScope = isTeacher ? { assignedTeacher: req.user._id } : {};
+
+    // 1. Get all students in scope
+    const scopedStudents = await Student.find(studentScope)
+      .select('_id name studentId latestPredictedScore latestRiskLevel assignedTeacher')
+      .lean();
+
+    const scopedStudentIds = scopedStudents.map((s) => s._id);
+
+    // High risk students count (Identify)
+    const highRiskStudents = scopedStudents.filter((s) => s.latestRiskLevel === 'High');
+    const highRiskStudentIds = highRiskStudents.map((s) => s._id);
+
+    // High risk students with at least one intervention (for Understand)
+    const highRiskWithInterventions = highRiskStudentIds.length > 0
+      ? await Intervention.distinct('student', { student: { $in: highRiskStudentIds } })
+      : [];
+    const highRiskWithInterventionsSet = new Set(highRiskWithInterventions.map((id) => id.toString()));
+
+    const highRiskCount = highRiskStudents.length;
+    const highRiskWithoutIntervention = highRiskStudents.filter(
+      (s) => !highRiskWithInterventionsSet.has(s._id.toString())
+    ).length;
+
+    // 2. Intervention status counts in scope
+    const interventionFilter = isTeacher ? { student: { $in: scopedStudentIds } } : {};
+
+    const [plannedCount, ongoingCount, completedCount] = await Promise.all([
+      Intervention.countDocuments({ ...interventionFilter, status: 'planned' }),
+      Intervention.countDocuments({ ...interventionFilter, status: 'ongoing' }),
+      Intervention.countDocuments({ ...interventionFilter, status: 'completed' }),
+    ]);
+
+    const actCount = plannedCount + ongoingCount;
+
+    // 3. Find all ongoing interventions in scope
+    const ongoingInterventions = await Intervention.find({
+      ...interventionFilter,
+      status: 'ongoing',
+    })
+      .sort({ updatedAt: -1, startDate: -1 })
+      .populate('student', '_id name studentId latestPredictedScore latestRiskLevel')
+      .lean();
+
+    // 4. Batch query assessments for all students with ongoing interventions
+    const ongoingStudentIds = ongoingInterventions.map((iv) => iv.student?._id).filter(Boolean);
+
+    const assessments = ongoingStudentIds.length > 0
+      ? await Assessment.find({ student: { $in: ongoingStudentIds } }).sort({ date: 1 }).lean()
+      : [];
+
+    const assessMap = new Map();
+    assessments.forEach((a) => {
+      const sId = a.student.toString();
+      if (!assessMap.has(sId)) assessMap.set(sId, []);
+      assessMap.get(sId).push(a);
+    });
+
+    const avgScore = (docs) => {
+      if (!docs || docs.length === 0) return null;
+      const total = docs.reduce((sum, a) => sum + (a.score / a.maxScore) * 100, 0);
+      return parseFloat((total / docs.length).toFixed(2));
+    };
+
+    // 5. Build ready-to-review list (ongoing AND at least one assessment on or after startDate)
+    const readyToReviewList = [];
+
+    for (const iv of ongoingInterventions) {
+      if (!iv.student) continue;
+      const sId = iv.student._id.toString();
+      const studentAssessments = assessMap.get(sId) || [];
+      const startDate = new Date(iv.startDate);
+
+      const beforeDocs = studentAssessments.filter((a) => new Date(a.date) < startDate);
+      const afterDocs = studentAssessments.filter((a) => new Date(a.date) >= startDate);
+
+      if (afterDocs.length >= 1) {
+        const before = avgScore(beforeDocs);
+        const after = avgScore(afterDocs);
+        let delta = null;
+        let verdict = 'insufficient data';
+
+        if (before != null && after != null) {
+          delta = parseFloat((after - before).toFixed(2));
+          if (delta > 3) verdict = 'improved';
+          else if (delta < -3) verdict = 'declined';
+          else verdict = 'no clear change';
+        }
+
+        readyToReviewList.push({
+          _id: iv._id,
+          student: {
+            _id: iv.student._id,
+            name: iv.student.name,
+            studentId: iv.student.studentId,
+            latestPredictedScore: iv.student.latestPredictedScore,
+            latestRiskLevel: iv.student.latestRiskLevel,
+          },
+          type: iv.type,
+          status: iv.status,
+          startDate: iv.startDate,
+          description: iv.description,
+          notes: iv.notes,
+          isSimulated: iv.isSimulated || false,
+          assessmentsBefore: beforeDocs.length,
+          assessmentsAfter: afterDocs.length,
+          beforeAvg: before,
+          afterAvg: after,
+          delta,
+          verdict,
+        });
+      }
+    }
+
+    const reviewCount = readyToReviewList.length;
+
+    res.json({
+      success: true,
+      data: {
+        counts: {
+          identify: highRiskCount,
+          understand: highRiskWithoutIntervention,
+          act: actCount,
+          review: reviewCount,
+          highRiskCount,
+          highRiskWithoutIntervention,
+          plannedCount,
+          ongoingCount,
+          completedCount,
+          readyToReviewCount: reviewCount,
+          totalInterventions: plannedCount + ongoingCount + completedCount,
+        },
+        readyToReview: readyToReviewList.slice(0, 10),
+        totalReadyToReview: reviewCount,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getDashboardSummary,
   getDashboardAttention,
+  getDashboardFollowups,
 };

@@ -408,6 +408,63 @@ async function run() {
   const attAdmin = await request('GET', '/api/dashboard/attention', null, adminToken);
   check('Admin attention 200 OK', attAdmin.status === 200, attAdmin.status);
 
+  console.log('\n【22c】 GET /api/dashboard/followups — 4-step loop counts, teacher scoping & loop closure');
+  const fol1 = await request('GET', '/api/dashboard/followups', null, token);
+  check('Teacher 1 followups 200 OK', fol1.status === 200, fol1.status);
+  check('has counts object', typeof fol1.body.data?.counts === 'object', fol1.body.data?.counts);
+  check('counts.identify is number', typeof fol1.body.data?.counts?.identify === 'number', fol1.body.data?.counts?.identify);
+  check('counts.understand is number', typeof fol1.body.data?.counts?.understand === 'number', fol1.body.data?.counts?.understand);
+  check('counts.act equals planned + ongoing', fol1.body.data?.counts?.act === fol1.body.data?.counts?.plannedCount + fol1.body.data?.counts?.ongoingCount, fol1.body.data?.counts);
+  check('counts.review is number', typeof fol1.body.data?.counts?.review === 'number', fol1.body.data?.counts?.review);
+  check('readyToReview is array', Array.isArray(fol1.body.data?.readyToReview), fol1.body.data?.readyToReview);
+
+  // Create an ongoing intervention on Teacher 1 student with start date in past
+  const pastDate = new Date('2026-01-01');
+  const ongoingIvRes = await request('POST', '/api/interventions', {
+    student: studentId,
+    type: 'Mentoring',
+    startDate: pastDate.toISOString(),
+    status: 'ongoing',
+    description: 'Loop closure test intervention',
+  }, token);
+  const loopIvId = ongoingIvRes.body.data?.intervention?._id;
+  check('created ongoing intervention', !!loopIvId, loopIvId);
+
+  // Add an assessment after start date to qualify for ready-to-review
+  await request('POST', `/api/students/${studentId}/assessments`, {
+    title: 'Post-intervention Test',
+    type: 'Quiz',
+    score: 85,
+    maxScore: 100,
+    date: '2026-01-15',
+  }, token);
+
+  // Fetch followups again — the item must appear in readyToReview
+  const folAfter = await request('GET', '/api/dashboard/followups', null, token);
+  const foundInReview = folAfter.body.data?.readyToReview?.find(item => item._id === loopIvId);
+  check('item appears in readyToReview list', !!foundInReview, foundInReview);
+  check('item has verdict', typeof foundInReview?.verdict === 'string', foundInReview?.verdict);
+  check('item has before/after metrics', typeof foundInReview?.afterAvg === 'number', foundInReview);
+
+  // Teacher scoping: Teacher 2 must NOT see Teacher 1 intervention in readyToReview
+  const folT2 = await request('GET', '/api/dashboard/followups', null, tokenT2);
+  check('Teacher 2 followups 200 OK', folT2.status === 200, folT2.status);
+  const t2HasT1Iv = folT2.body.data?.readyToReview?.some(item => item._id === loopIvId);
+  check('Teacher 2 cannot see Teacher 1 readyToReview item', !t2HasT1Iv, t2HasT1Iv);
+
+  // Close the loop: conclude intervention with PATCH status=completed and outcome note
+  const patchRes = await request('PATCH', `/api/interventions/${loopIvId}`, {
+    status: 'completed',
+    outcome: 'Student improved assessment score from pre-intervention baseline to 85%',
+  }, token);
+  check('concluded intervention via PATCH status=completed', patchRes.status === 200, patchRes.status);
+  check('status is completed', patchRes.body.data?.intervention?.status === 'completed', patchRes.body.data?.intervention?.status);
+
+  // Verify item immediately disappeared from readyToReview
+  const folConcluded = await request('GET', '/api/dashboard/followups', null, token);
+  const stillInReview = folConcluded.body.data?.readyToReview?.some(item => item._id === loopIvId);
+  check('concluded item disappeared from readyToReview (loop closed)', !stillInReview, stillInReview);
+
   console.log('\n【23】 POST /api/students/:id/predict — student with device_availability = "None"');
   const stuNoneRes = await request('POST', '/api/students', {
     studentId: `STU_P2_NONE_${ts}`,

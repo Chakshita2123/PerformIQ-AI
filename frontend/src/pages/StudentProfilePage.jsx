@@ -263,6 +263,96 @@ export default function StudentProfilePage() {
   }
 
   const latestPrediction = predictions[0] || null;
+
+  // ── Determine Current Student Workflow Stage and Next Action ──────────────
+  const latestIntervention = interventions[0] || null;
+  let stage = 'Identified';
+  let nextActionPrompt = 'Assign an intervention';
+  let nextActionHelper =
+    'This student does not have an active support plan yet. Assign a targeted program to help address flagged risk factors.';
+  let nextActionButtonText = 'Assign intervention';
+  let nextActionType = 'intervene'; // 'intervene' | 'assess' | 'impact'
+  let stageBadgeClass = 'bg-subtle text-text-muted border-border';
+
+  if (!latestIntervention) {
+    stage = 'Identified';
+    stageBadgeClass = 'bg-subtle text-text-muted border-border';
+    nextActionPrompt = 'Assign an intervention';
+    nextActionHelper =
+      'This student does not have an active support program yet. Assign a targeted intervention to help address flagged risk factors.';
+    nextActionButtonText = 'Assign intervention';
+    nextActionType = 'intervene';
+  } else if (latestIntervention.status === 'planned') {
+    stage = 'Planned';
+    stageBadgeClass = 'bg-accent-bg text-accent-text border-teal/40';
+    nextActionPrompt = 'Launch planned support program';
+    nextActionHelper = `A ${latestIntervention.type} program is planned starting ${formatDate(
+      latestIntervention.startDate
+    )}. Mark it ongoing once sessions begin.`;
+    nextActionButtonText = 'View follow-up';
+    nextActionType = 'impact';
+  } else if (latestIntervention.status === 'ongoing') {
+    const startDate = new Date(latestIntervention.startDate);
+    const postDocs = assessments.filter((a) => new Date(a.date) >= startDate);
+    const preDocs = assessments.filter((a) => new Date(a.date) < startDate);
+
+    if (postDocs.length === 0) {
+      stage = 'Ongoing';
+      stageBadgeClass = 'bg-accent-bg text-accent-text border-teal/40 font-semibold';
+      nextActionPrompt = 'Record a new assessment in about two weeks to see the impact';
+      nextActionHelper = `${latestIntervention.type} is ongoing. Once sessions have run, log a quiz or test score to measure academic progress.`;
+      nextActionButtonText = 'Record new assessment';
+      nextActionType = 'assess';
+    } else {
+      const avg = (docs) =>
+        docs.reduce((sum, a) => sum + (a.score / a.maxScore) * 100, 0) / docs.length;
+      const postAvg = avg(postDocs);
+      const preAvg = preDocs.length > 0 ? avg(preDocs) : null;
+      const delta = preAvg != null ? postAvg - preAvg : null;
+
+      if (delta != null && delta > 3) {
+        stage = 'Improved';
+        stageBadgeClass =
+          'bg-risk-low-bg text-risk-low-text border-risk-low-border font-semibold';
+        nextActionPrompt = 'Review impact';
+        nextActionHelper = `Score improved by +${delta.toFixed(
+          1
+        )} points after starting ${latestIntervention.type}. Review the impact evaluation and conclude the follow-up if ready.`;
+        nextActionButtonText = 'Review impact';
+        nextActionType = 'impact';
+      } else if (delta != null && delta < -3) {
+        stage = 'Declined: consider a new plan';
+        stageBadgeClass =
+          'bg-risk-high-bg text-risk-high-text border-risk-high-border font-semibold';
+        nextActionPrompt = 'Review impact & adjust plan';
+        nextActionHelper = `Score declined by ${delta.toFixed(
+          1
+        )} points. Review the timeline and consider assigning a different intervention strategy.`;
+        nextActionButtonText = 'Review impact';
+        nextActionType = 'impact';
+      } else {
+        stage = 'No clear change';
+        stageBadgeClass =
+          'bg-risk-med-bg text-risk-med-text border-risk-med-border font-semibold';
+        nextActionPrompt = 'Review impact';
+        nextActionHelper = `Score delta is within ±3 points. Review the impact analysis or record an additional assessment for more data.`;
+        nextActionButtonText = 'Review impact';
+        nextActionType = 'impact';
+      }
+    }
+  } else if (latestIntervention.status === 'completed') {
+    stage = latestIntervention.outcome?.toLowerCase().includes('improved')
+      ? 'Improved'
+      : 'No clear change';
+    stageBadgeClass =
+      stage === 'Improved'
+        ? 'bg-risk-low-bg text-risk-low-text border-risk-low-border'
+        : 'bg-subtle text-text-muted border-border';
+    nextActionPrompt = 'Review impact report';
+    nextActionHelper = `Follow-up concluded. You can review the historical impact report or assign a new program if needed.`;
+    nextActionButtonText = 'View impact';
+    nextActionType = 'impact';
+  }
   // Recommendations come strictly from backend prediction rules
   const recommendationReasons = latestPrediction?.recommendations || [];
 
@@ -307,6 +397,9 @@ export default function StudentProfilePage() {
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight text-text-primary">{student.name}</h1>
               <RiskBadge level={student.latestRiskLevel} />
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs border capitalize font-semibold ${stageBadgeClass}`}>
+                Stage: {stage}
+              </span>
             </div>
             <p className="text-xs text-text-muted mt-0.5 font-mono-num">
               ID: {student.studentId} · Assigned: {student.assignedTeacher?.name || 'Assigned Teacher'}
@@ -693,6 +786,56 @@ export default function StudentProfilePage() {
             <p className="font-semibold text-text-primary mt-0.5">
               {student.revision_frequency || 'N/A'}
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Recommended Next Step Callout ─────────────────────────────────── */}
+      <section className="p-5 bg-panel border-2 border-teal/40 rounded-xl space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold text-accent-text uppercase tracking-wider block">
+              Recommended next step • {stage}
+            </span>
+            <h3 className="text-base font-bold text-text-primary">
+              {nextActionPrompt}
+            </h3>
+            <p className="text-xs text-text-muted max-w-xl">
+              {nextActionHelper}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {nextActionType === 'intervene' && (
+              <button
+                type="button"
+                onClick={() => setShowInterventionModal(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-navy bg-teal hover:bg-accent-hover rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Assign intervention</span>
+              </button>
+            )}
+            {nextActionType === 'assess' && (
+              <button
+                type="button"
+                onClick={() => setShowAssessmentModal(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-navy bg-teal hover:bg-accent-hover rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Record new assessment</span>
+              </button>
+            )}
+            {nextActionType === 'impact' && (
+              <button
+                type="button"
+                onClick={() => setSelectedInterventionForImpact(latestIntervention)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-navy bg-teal hover:bg-accent-hover rounded-lg transition-colors"
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span>{nextActionButtonText}</span>
+              </button>
+            )}
           </div>
         </div>
       </section>

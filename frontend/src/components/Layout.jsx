@@ -2,56 +2,63 @@ import React, { useState } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
+import HelpDrawer from './HelpDrawer';
 import {
   LayoutDashboard,
   Users,
-  UserPlus,
   ClipboardList,
   ShieldAlert,
   GraduationCap,
   LogOut,
   Menu,
   X,
+  HelpCircle,
 } from 'lucide-react';
 
 /**
  * Layout
- * Polished, distinctive layout with quiet chrome, dark/light theme toggle,
- * responsive mobile menu, and clean header without duplicate scope text.
+ * Polished, distinctive layout with quiet chrome, task-based navigation
+ * (Today, Students, Follow-ups, About the model), help drawer toggle,
+ * and high-contrast accessible controls.
  */
 export default function Layout() {
   const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  // Task-based navigation items
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Today', path: '/', icon: LayoutDashboard },
     { name: 'Students', path: '/students', icon: Users },
-    { name: 'Enroll student', path: '/students/new', icon: UserPlus },
-    { name: 'Interventions', path: '/interventions', icon: ClipboardList },
-    { name: 'Early warning', path: '/early-warning', icon: ShieldAlert },
+    { name: 'Follow-ups', path: '/follow-ups', icon: ClipboardList },
+    { name: 'About the model', path: '/about-the-model', icon: ShieldAlert },
   ];
 
-  // Strict single-active matching logic:
-  // /students/new activates ONLY "Enroll student".
-  // /students and /students/:id (except /students/new) activates ONLY "Students".
+  // Task-aware active state matching
   const isItemActive = (itemPath) => {
     if (itemPath === '/') {
       return location.pathname === '/';
     }
-    if (itemPath === '/students/new') {
-      return location.pathname === '/students/new';
-    }
     if (itemPath === '/students') {
+      return location.pathname.startsWith('/students');
+    }
+    if (itemPath === '/follow-ups') {
       return (
-        location.pathname === '/students' ||
-        (location.pathname.startsWith('/students/') && location.pathname !== '/students/new')
+        location.pathname.startsWith('/follow-ups') ||
+        location.pathname.startsWith('/interventions')
+      );
+    }
+    if (itemPath === '/about-the-model') {
+      return (
+        location.pathname.startsWith('/about-the-model') ||
+        location.pathname.startsWith('/early-warning')
       );
     }
     return location.pathname.startsWith(itemPath);
@@ -71,6 +78,14 @@ export default function Layout() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            aria-label="Open help and guidance"
+            className="p-1.5 rounded-lg border border-border text-text-muted hover:text-text-primary hover:bg-subtle transition-colors"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
           <ThemeToggle />
           <button
             type="button"
@@ -107,7 +122,7 @@ export default function Layout() {
         {/* Navigation Menu */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           <div className="px-3 pt-2 pb-1.5 text-xs font-medium text-text-subtle">
-            Navigation
+            Tasks
           </div>
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -166,14 +181,26 @@ export default function Layout() {
 
       {/* ── Main Content Area ────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Desktop Sticky Header: Clean, quiet, with ThemeToggle & User Profile */}
+        {/* Desktop Sticky Header */}
         <header className="hidden md:flex items-center justify-between px-8 py-3 bg-panel border-b border-border sticky top-0 z-20">
           <div />
 
           {/* User Controls & Profile */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-text-muted hover:text-text-primary bg-panel hover:bg-subtle border border-border rounded-lg transition-colors"
+              title="Help and guidance"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-accent" />
+              <span>Help</span>
+            </button>
+
             <ThemeToggle />
+
             <div className="h-4 w-px bg-border" />
+
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-full bg-subtle border border-border flex items-center justify-center text-accent-text font-bold text-xs flex-shrink-0">
                 {user?.name ? user.name[0].toUpperCase() : 'U'}
@@ -205,6 +232,9 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Slide-over Help Drawer */}
+      <HelpDrawer isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

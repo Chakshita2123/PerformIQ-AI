@@ -4,13 +4,12 @@ import Layout from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Route-level code splitting: each page is a separate chunk loaded on demand.
-// This reduces the initial JS bundle size and speeds up first-paint.
 const LoginPage          = lazy(() => import('./pages/LoginPage'));
 const DashboardPage      = lazy(() => import('./pages/DashboardPage'));
 const StudentsPage       = lazy(() => import('./pages/StudentsPage'));
 const StudentProfilePage = lazy(() => import('./pages/StudentProfilePage'));
 const AddStudentPage     = lazy(() => import('./pages/AddStudentPage'));
-const InterventionsPage  = lazy(() => import('./pages/InterventionsPage'));
+const FollowupsPage      = lazy(() => import('./pages/FollowupsPage'));
 const EarlyWarningPage   = lazy(() => import('./pages/EarlyWarningPage'));
 
 /** Full-screen spinner shown while a lazy page chunk is loading. */
@@ -23,7 +22,7 @@ function PageLoader() {
 }
 
 /**
- * App: Defines application routing structure with protected routes
+ * App: Defines task-based application routing with protected routes
  * and role-aware navigation under Layout.
  */
 export default function App() {
@@ -36,12 +35,21 @@ export default function App() {
         {/* Protected Routes (Requires authenticated JWT session) */}
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
+            {/* 1. Today (Dashboard) */}
             <Route path="/" element={<DashboardPage />} />
+
+            {/* 2. Students */}
             <Route path="/students" element={<StudentsPage />} />
             <Route path="/students/new" element={<AddStudentPage />} />
             <Route path="/students/:id" element={<StudentProfilePage />} />
-            <Route path="/interventions" element={<InterventionsPage />} />
-            <Route path="/early-warning" element={<EarlyWarningPage />} />
+
+            {/* 3. Follow-ups (with legacy redirect from /interventions) */}
+            <Route path="/follow-ups" element={<FollowupsPage />} />
+            <Route path="/interventions" element={<Navigate to="/follow-ups" replace />} />
+
+            {/* 4. About the model (with legacy redirect from /early-warning) */}
+            <Route path="/about-the-model" element={<EarlyWarningPage />} />
+            <Route path="/early-warning" element={<Navigate to="/about-the-model" replace />} />
           </Route>
         </Route>
 

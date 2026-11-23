@@ -108,6 +108,7 @@ Trained on the Open University Learning Analytics Dataset (OULAD) using VLE inte
 ## Known limitations
 
 - The exam-performance dataset has a synthetic structure (all numeric fields capped at round values such as stress = 1–10). Real-world data will differ.
+- The model also receives background details (such as gender, family income and location). They are never used to explain a risk or to suggest actions, and in testing they had little effect.
 - `device_availability` has a literal string `"None"` in the CSV (meaning no device). The ML service converts this to `null` before inference to match how pandas `read_csv` treated it during training (see `ml-service/main.py#clean_features`).
 - Storing the JWT in `localStorage` is convenient but exposes it to XSS attacks. For production, prefer `httpOnly` cookies with CSRF protection.
 - The OULAD early-warning module stores aggregated benchmark results in MongoDB; it does not predict individual students from live VLE data in this release.

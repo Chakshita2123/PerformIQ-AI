@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { useChartTheme } from '../context/ThemeContext';
 import RiskBar from '../components/RiskBar';
 import AttentionRow from '../components/AttentionRow';
+import FlowStrip from '../components/FlowStrip';
+import WelcomeCard from '../components/WelcomeCard';
 import Skeleton from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import {
@@ -41,6 +43,7 @@ export default function DashboardPage() {
 
   const [summaryData, setSummaryData] = useState(null);
   const [attentionStudents, setAttentionStudents] = useState([]);
+  const [followupsData, setFollowupsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -66,9 +69,10 @@ export default function DashboardPage() {
     setError('');
 
     try {
-      const [sumRes, attRes] = await Promise.all([
+      const [sumRes, attRes, folRes] = await Promise.all([
         api.get('/dashboard/summary'),
         api.get('/dashboard/attention'),
+        api.get('/dashboard/followups'),
       ]);
 
       if (sumRes.data?.success) {
@@ -76,6 +80,9 @@ export default function DashboardPage() {
       }
       if (attRes.data?.success) {
         setAttentionStudents(attRes.data.data || []);
+      }
+      if (folRes.data?.success) {
+        setFollowupsData(folRes.data.data);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Error connecting to the analytics server.');
@@ -238,6 +245,12 @@ export default function DashboardPage() {
           <span>Refresh</span>
         </button>
       </div>
+
+      {/* ── Welcome Onboarding Card (Dismissible with localStorage persistence) ── */}
+      <WelcomeCard />
+
+      {/* ── 4-Step Support Loop Progression (Identify → Understand → Act → Review) ── */}
+      <FlowStrip counts={followupsData?.counts || {}} />
 
       {/* Slim single-line simulated demo data notice */}
       <div className="py-1 px-3 bg-subtle/70 border border-border rounded-md flex items-center gap-2 text-[11px] text-text-muted">

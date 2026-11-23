@@ -16,6 +16,9 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Show demo logins button only if VITE_SHOW_DEMO_LOGINS is true (or unset for local dev)
+  const showDemoLogins = import.meta.env.VITE_SHOW_DEMO_LOGINS !== 'false' && import.meta.env.VITE_SHOW_DEMO_LOGINS !== false;
+
   // If already authenticated, redirect to dashboard
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -122,71 +125,73 @@ export default function LoginPage() {
           </form>
 
           {/* ── Demo Accounts Quick-Fill Box ──────────────────────────────── */}
-          <div className="mt-8 pt-6 border-t border-slate-100">
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Demo Accounts (Click to Fill)
-              </h3>
+          {showDemoLogins && (
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Demo Accounts (Click to Fill)
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">
+                Click an account below to automatically fill the login credentials:
+              </p>
+
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={() => fillCredentials('admin@performiq.ai', 'AdminDemo123!')}
+                  className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-left transition-colors group"
+                >
+                  <div>
+                    <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-700">
+                      Administrator
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-mono">admin@performiq.ai</p>
+                  </div>
+                  <span className="text-[10px] bg-purple-100 text-purple-700 font-medium px-2 py-0.5 rounded">
+                    Admin
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fillCredentials('teacher1@performiq.ai', 'TeacherDemo123!')}
+                  className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-left transition-colors group"
+                >
+                  <div>
+                    <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-700">
+                      Dr. Sarah Jenkins
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-mono">teacher1@performiq.ai</p>
+                  </div>
+                  <span className="text-[10px] bg-indigo-100 text-indigo-700 font-medium px-2 py-0.5 rounded">
+                    Teacher (1,667 Students)
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fillCredentials('teacher2@performiq.ai', 'TeacherDemo123!')}
+                  className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-left transition-colors group"
+                >
+                  <div>
+                    <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-700">
+                      Prof. Marcus Chen
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-mono">teacher2@performiq.ai</p>
+                  </div>
+                  <span className="text-[10px] bg-indigo-100 text-indigo-700 font-medium px-2 py-0.5 rounded">
+                    Teacher (1,667 Students)
+                  </span>
+                </button>
+              </div>
+
+              <p className="mt-3 text-[11px] text-slate-400 italic text-center">
+                Demo passwords are for local evaluation only. Change in .env before public deployment.
+              </p>
             </div>
-            <p className="text-xs text-slate-500 mb-3">
-              Click an account below to automatically fill the login credentials:
-            </p>
-
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => fillCredentials('admin@performiq.ai', 'AdminDemo123!')}
-                className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-left transition-colors group"
-              >
-                <div>
-                  <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-700">
-                    Administrator
-                  </p>
-                  <p className="text-[11px] text-slate-500 font-mono">admin@performiq.ai</p>
-                </div>
-                <span className="text-[10px] bg-purple-100 text-purple-700 font-medium px-2 py-0.5 rounded">
-                  Admin
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials('teacher1@performiq.ai', 'TeacherDemo123!')}
-                className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-left transition-colors group"
-              >
-                <div>
-                  <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-700">
-                    Dr. Sarah Jenkins
-                  </p>
-                  <p className="text-[11px] text-slate-500 font-mono">teacher1@performiq.ai</p>
-                </div>
-                <span className="text-[10px] bg-indigo-100 text-indigo-700 font-medium px-2 py-0.5 rounded">
-                  Teacher (1,667 Students)
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillCredentials('teacher2@performiq.ai', 'TeacherDemo123!')}
-                className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 border border-slate-200 rounded-lg text-left transition-colors group"
-              >
-                <div>
-                  <p className="text-xs font-semibold text-slate-800 group-hover:text-indigo-700">
-                    Prof. Marcus Chen
-                  </p>
-                  <p className="text-[11px] text-slate-500 font-mono">teacher2@performiq.ai</p>
-                </div>
-                <span className="text-[10px] bg-indigo-100 text-indigo-700 font-medium px-2 py-0.5 rounded">
-                  Teacher (1,667 Students)
-                </span>
-              </button>
-            </div>
-
-            <p className="mt-3 text-[11px] text-slate-400 italic text-center">
-              Demo passwords are for local evaluation only. Change in .env before public deployment.
-            </p>
-          </div>
+          )}
         </div>
       </div>
     </div>

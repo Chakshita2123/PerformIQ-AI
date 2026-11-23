@@ -161,9 +161,21 @@ This runs `scripts/run-tests.js`, which guarantees `NODE_ENV=test`, verifies the
   - *503 Fallback*: If ML service is down or unreachable, returns HTTP `503 Service Unavailable`.
   - `GET /api/students/:id/predictions` — Prediction history for a student.
   - `GET /api/predictions?risk=High` — Scoped list of high-risk students.
-- **Interventions**: `POST /api/interventions`, `GET /api/students/:id/interventions`, `PATCH /api/interventions/:id`
-- **Impact Tracking**: `GET /api/interventions/:id/impact` — Before vs after score delta & verdict (`improved`, `declined`, `no clear change`, `insufficient data`).
+- **Interventions**:
+  - `GET /api/interventions` — Paginated list of all interventions with status and student filtering, sorted newest first, populated student details, and teacher scoping.
+  - `POST /api/interventions` — Assigns intervention to a student.
+  - `GET /api/students/:id/interventions` — Interventions assigned to a specific student.
+  - `PATCH /api/interventions/:id` — Updates intervention status, notes, outcome.
+- **Impact Tracking**:
+  - `GET /api/interventions/:id/impact` — Before vs after score delta & verdict (`improved`, `declined`, `no clear change`, `insufficient data`, `not started yet`). Gracefully handles planned and ongoing interventions.
 - **Dashboard**: `GET /api/dashboard/summary` — Aggregation pipeline for student counts by risk level, average score, intervention statuses, and top 5 recommendation reasons (scoped to teacher).
+- **Frontend Pages (Phase 5b)**:
+  - **Dashboard (`/`)**: High-level risk summary cards, distribution charts, and actionable recommendation priorities.
+  - **Students Directory (`/students`)**: Search, filter by risk level, sort by predicted score or name, and quick navigation.
+  - **Enroll Student (`/students/new`)**: Sectioned student enrollment form built from exact dataset enums (`studentFields.js`) with client-side validation and immediate prediction trigger.
+  - **Student Profile (`/students/:id`)**: Comprehensive demographic attributes, live ML prediction button with missing-fields warning, assessment timeline chart (Recharts) with assessment logging form, assigned interventions, status manager, and impact evaluator.
+  - **Interventions Directory (`/interventions`)**: Paginated cross-student interventions table with status filter tabs and one-click before/after impact evaluation.
+  - **Early Warning & OULAD Analytics (`/early-warning`)**: Cutoff benchmark trajectories (ROC-AUC & Recall), weekly VLE click activity by final outcome, and paginated at-risk registry.
 - **OULAD Early Warning & Benchmarks (Module 3)**:
   - `GET /api/oulad/at-risk` — Paginated list of at-risk students, filterable by `risk_level`, `code_module`, and searchable by `id_student`.
   - `GET /api/oulad/cutoff-results` — Benchmark performance (ROC_AUC, Recall, Precision) across cutoff days.

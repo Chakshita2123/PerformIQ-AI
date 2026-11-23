@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const {
+  getInterventions,
   createIntervention,
   getStudentInterventions,
   updateIntervention,
@@ -26,6 +27,9 @@ const updateRules = [
     .isIn(['planned', 'ongoing', 'completed'])
     .withMessage('status must be planned, ongoing or completed'),
 ];
+
+// GET /api/interventions
+router.get('/', getInterventions);
 
 // POST /api/interventions
 router.post('/', createRules, createIntervention);

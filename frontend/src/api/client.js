@@ -25,14 +25,19 @@ api.interceptors.request.use(
 );
 
 // Response interceptor: On 401 Unauthorized, purge stored auth and redirect to /login
+// Note: Do NOT purge or redirect if the failing request is the login request itself (/auth/login),
+// so wrong passwords/credentials can display error feedback on the login page.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('performiq_token');
-      localStorage.removeItem('performiq_user');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      const isLoginRequest = error.config && error.config.url && error.config.url.includes('/auth/login');
+      if (!isLoginRequest) {
+        localStorage.removeItem('performiq_token');
+        localStorage.removeItem('performiq_user');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

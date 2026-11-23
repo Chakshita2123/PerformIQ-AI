@@ -301,6 +301,47 @@ async function run() {
   const impactOngoing = await request('GET', `/api/interventions/${intIdOngoing}/impact`, null, token);
   check('200 OK',                        impactOngoing.status === 200,                               impactOngoing.status);
   check('verdict = insufficient data',   impactOngoing.body.data?.verdict === 'insufficient data',   impactOngoing.body.data?.verdict);
+  check('status is ongoing',             impactOngoing.body.data?.status === 'ongoing',              impactOngoing.body.data?.status);
+
+  console.log('\n【18c】 GET /api/interventions — list, pagination, and status/student filtering');
+  const allIntRes = await request('GET', '/api/interventions?limit=5', null, token);
+  check('200 OK', allIntRes.status === 200, allIntRes.status);
+  check('has interventions array', Array.isArray(allIntRes.body.data?.interventions), allIntRes.body.data);
+  check('has pagination', allIntRes.body.data?.pagination?.total >= 3, allIntRes.body.data?.pagination);
+  check('populated student has name and studentId', !!allIntRes.body.data?.interventions[0]?.student?.name && !!allIntRes.body.data?.interventions[0]?.student?.studentId, allIntRes.body.data?.interventions[0]?.student);
+
+  // Filter by status
+  const plannedIntRes = await request('GET', '/api/interventions?status=planned', null, token);
+  check('filter by status=planned', plannedIntRes.body.data?.interventions?.every(i => i.status === 'planned'), plannedIntRes.body.data?.interventions);
+
+  // Filter by student
+  const stuIntRes = await request('GET', `/api/interventions?student=${studentId}`, null, token);
+  check('filter by student ID', stuIntRes.body.data?.interventions?.every(i => i.student?._id === studentId), stuIntRes.body.data?.interventions);
+
+  console.log('\n【18d】 GET /api/interventions — teacher scoping');
+  // Create an intervention for Teacher 2's student
+  const ivT2 = await request('POST', '/api/interventions', {
+    student: studentIdT2,
+    type: 'Peer Support',
+    startDate: '2025-02-01',
+    status: 'ongoing',
+  }, tokenT2);
+  const intIdT2 = ivT2.body.data?.intervention?._id;
+
+  // Teacher 1 attempts to query Teacher 2's student interventions via ?student=
+  const t1AccessT2 = await request('GET', `/api/interventions?student=${studentIdT2}`, null, token);
+  check('Teacher 1 cannot view Teacher 2 student interventions → 403', t1AccessT2.status === 403, t1AccessT2.status);
+
+  // Teacher 1 listing without student filter only sees their own students
+  const t1List = await request('GET', '/api/interventions', null, token);
+  const t1HasT2Intervention = t1List.body.data?.interventions?.some(i => i._id === intIdT2);
+  check('Teacher 1 list excludes Teacher 2 interventions', !t1HasT2Intervention, t1HasT2Intervention);
+
+  // Admin sees all
+  const adminList = await request('GET', '/api/interventions', null, adminToken);
+  check('Admin 200 OK', adminList.status === 200, adminList.status);
+  const adminHasT2 = adminList.body.data?.interventions?.some(i => i._id === intIdT2);
+  check('Admin can view all interventions', adminHasT2, adminHasT2);
 
   // ══════════════════════════════════════════════════════════════════════════
   // 4. DASHBOARD & TEACHER SCOPING

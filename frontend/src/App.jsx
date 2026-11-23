@@ -5,7 +5,10 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import StudentsPage from './pages/StudentsPage';
-import StudentProfilePlaceholder from './pages/StudentProfilePlaceholder';
+import StudentProfilePage from './pages/StudentProfilePage';
+import AddStudentPage from './pages/AddStudentPage';
+import InterventionsPage from './pages/InterventionsPage';
+import EarlyWarningPage from './pages/EarlyWarningPage';
 
 /**
  * App: Defines application routing structure with protected routes
@@ -22,7 +25,10 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/students" element={<StudentsPage />} />
-          <Route path="/students/:id" element={<StudentProfilePlaceholder />} />
+          <Route path="/students/new" element={<AddStudentPage />} />
+          <Route path="/students/:id" element={<StudentProfilePage />} />
+          <Route path="/interventions" element={<InterventionsPage />} />
+          <Route path="/early-warning" element={<EarlyWarningPage />} />
         </Route>
       </Route>
 

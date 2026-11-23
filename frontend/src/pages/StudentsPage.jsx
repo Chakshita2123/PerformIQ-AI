@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ExternalLink,
   Users,
+  UserPlus,
   AlertCircle,
   RefreshCw,
   HelpCircle,
@@ -97,8 +98,16 @@ export default function StudentsPage() {
           </p>
         </div>
 
-        <div className="text-xs font-semibold px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg self-start sm:self-auto">
-          Total Records: {pagination.total.toLocaleString()}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <div className="text-xs font-semibold px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg">
+            Total Records: {pagination.total.toLocaleString()}
+          </div>
+          <Link
+            to="/students/new"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+          >
+            <UserPlus className="w-3.5 h-3.5" /> Enroll Student
+          </Link>
         </div>
       </div>
 

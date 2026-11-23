@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
   Users,
+  UserPlus,
+  ClipboardList,
   LogOut,
   ShieldAlert,
   GraduationCap,
@@ -29,6 +31,9 @@ export default function Layout() {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Students', path: '/students', icon: Users },
+    { name: 'Enroll Student', path: '/students/new', icon: UserPlus },
+    { name: 'Interventions', path: '/interventions', icon: ClipboardList },
+    { name: 'Early Warning', path: '/early-warning', icon: ShieldAlert },
   ];
 
   return (

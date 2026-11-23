@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { validationResult } = require('express-validator');
 const Intervention = require('../models/Intervention');
 const Assessment = require('../models/Assessment');
@@ -5,7 +6,83 @@ const Student = require('../models/Student');
 const { getOwnedStudent } = require('../utils/scopeCheck');
 
 /**
+ * GET /api/interventions
+ * Lists all interventions with pagination, optional status and student filters.
+ * Teacher scoping: a teacher sees only interventions for their assigned students.
+ * Admin sees all interventions.
+ * Populates student (name, studentId) and assignedBy (name, email).
+ * Sorted newest first (createdAt: -1).
+ */
+const getInterventions = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+
+    // 1. Resolve student filter if provided
+    let targetStudentId = null;
+    if (req.query.student) {
+      if (mongoose.Types.ObjectId.isValid(req.query.student)) {
+        targetStudentId = req.query.student;
+      } else {
+        const found = await Student.findOne({ studentId: req.query.student }).select('_id');
+        if (found) targetStudentId = found._id;
+        else targetStudentId = new mongoose.Types.ObjectId(); // Non-matching ID
+      }
+    }
+
+    // 2. Teacher scoping
+    if (req.user.role === 'teacher') {
+      const myStudents = await Student.find({ assignedTeacher: req.user._id }).select('_id');
+      const myStudentIds = myStudents.map((s) => s._id.toString());
+
+      if (targetStudentId) {
+        if (!myStudentIds.includes(targetStudentId.toString())) {
+          return res.status(403).json({ success: false, message: 'Access denied: student not assigned to you' });
+        }
+        filter.student = targetStudentId;
+      } else {
+        filter.student = { $in: myStudentIds };
+      }
+    } else if (targetStudentId) {
+      filter.student = targetStudentId;
+    }
+
+    // 3. Status filter
+    if (req.query.status && ['planned', 'ongoing', 'completed'].includes(req.query.status)) {
+      filter.status = req.query.status;
+    }
+
+    const total = await Intervention.countDocuments(filter);
+    const interventions = await Intervention.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('student', 'name studentId')
+      .populate('assignedBy', 'name email');
+
+    res.json({
+      success: true,
+      data: {
+        interventions,
+        pagination: {
+          total,
+          page,
+          pages: Math.ceil(total / limit) || 1,
+          limit,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
  * POST /api/interventions
+
  * Creates a new intervention for a student.
  * Teacher scoping: a teacher can only create interventions for their own students.
  * assignedBy is always set to the requesting user (cannot be overridden).
@@ -138,7 +215,9 @@ const getImpact = async (req, res, next) => {
         message: 'Intervention is planned and has not started yet.',
         data: {
           interventionId: intervention._id,
+          type: intervention.type,
           status: 'planned',
+          isSimulated: intervention.isSimulated || false,
           startDate: intervention.startDate,
           assessmentsBefore: beforeDocs.length,
           assessmentsAfter: 0,
@@ -172,15 +251,23 @@ const getImpact = async (req, res, next) => {
           ? 'before'
           : 'after';
 
+      const isOngoing = intervention.status === 'ongoing';
+      const msg = isOngoing && afterDocs.length === 0
+        ? 'Intervention is ongoing, but no assessments have been recorded since it started.'
+        : `Insufficient data: no assessments recorded ${missing} the intervention start date.`;
+
       return res.json({
         success: true,
-        message: `Insufficient data: no assessments recorded ${missing} the intervention start date.`,
+        message: msg,
         data: {
           interventionId: intervention._id,
+          type: intervention.type,
+          status: intervention.status,
+          isSimulated: intervention.isSimulated || false,
           startDate: intervention.startDate,
           assessmentsBefore: beforeDocs.length,
           assessmentsAfter:  afterDocs.length,
-          before: null,
+          before: beforeDocs.length > 0 ? avg(beforeDocs) : null,
           after: null,
           delta: null,
           verdict: 'insufficient data',
@@ -196,10 +283,18 @@ const getImpact = async (req, res, next) => {
     if (delta > 3)  verdict = 'improved';
     else if (delta < -3) verdict = 'declined';
 
+    const impactMessage = intervention.status === 'ongoing'
+      ? 'Intervention is ongoing (preliminary impact).'
+      : 'Impact calculated successfully.';
+
     res.json({
       success: true,
+      message: impactMessage,
       data: {
         interventionId: intervention._id,
+        type: intervention.type,
+        status: intervention.status,
+        isSimulated: intervention.isSimulated || false,
         startDate: intervention.startDate,
         assessmentsBefore: beforeDocs.length,
         assessmentsAfter:  afterDocs.length,
@@ -214,4 +309,10 @@ const getImpact = async (req, res, next) => {
   }
 };
 
-module.exports = { createIntervention, getStudentInterventions, updateIntervention, getImpact };
+module.exports = {
+  getInterventions,
+  createIntervention,
+  getStudentInterventions,
+  updateIntervention,
+  getImpact,
+};

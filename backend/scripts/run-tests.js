@@ -86,16 +86,25 @@ async function main() {
       }
     });
 
+    serverProcess.stderr.on('data', (d) => {
+      process.stderr.write('  [Server Error] ' + d.toString());
+    });
+
     // Wait until server is ready
     let attempts = 0;
-    while (attempts < 20) {
+    let ready = false;
+    while (attempts < 30) {
       await new Promise((r) => setTimeout(r, 500));
       const s = await checkServer();
       if (s.running && s.db === 'performiq_test') {
         console.log('\n✅ Server ready and verified connected to: performiq_test\n');
+        ready = true;
         break;
       }
       attempts++;
+    }
+    if (!ready) {
+      throw new Error('Test server failed to start or connect to performiq_test within 15 seconds.');
     }
   }
 

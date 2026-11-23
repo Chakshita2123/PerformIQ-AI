@@ -295,3 +295,56 @@ Form elements (`<input>`, `<select>`) whose values are controlled by React state
   - **20% Ongoing:** Recent start dates (-15 to -45 days), with baseline pre-assessments and ongoing progress assessments, `outcome: null`.
   - **15% Planned:** Future start dates (+15 to +45 days), baseline pre-assessments in place, `outcome: null`.
 
+---
+
+## 12. React Frontend & UX Architecture (Phase 5b)
+
+### 1. Axios 401 Response Interceptor: Login vs Session Expiry
+- **The Issue:** A naive response interceptor that catches any HTTP 401 and calls `localStorage.removeItem()` followed by a window redirect to `/login` creates an infinite loop or hides errors when a user simply enters an incorrect password during login.
+- **The Solution:**
+  ```javascript
+  const isLoginRequest = error.config && error.config.url && error.config.url.includes('/auth/login');
+  if (!isLoginRequest) {
+    localStorage.removeItem('performiq_token');
+    localStorage.removeItem('performiq_user');
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
+  }
+  ```
+  Excluding `/auth/login` allows the 401 response error message (`"Invalid email or password"`) to pass directly into the `catch` block of `LoginPage`, presenting immediate visual feedback to the user without clearing browser state.
+
+### 2. Low-Confidence Prediction Warning (`missingFieldsCount > 10`)
+- **What it is:** In real-world educational institutions, students frequently enroll with incomplete survey or academic records. The scikit-learn `SimpleImputer` in our preprocessing pipeline replaces missing numerical values with column medians and categoricals with most-frequent categories.
+- **UX Consideration:** While the model computes a valid prediction, imputing more than 10 features introduces substantial uncertainty. The UI displays an amber warning banner:
+  > *"⚠️ Low confidence prediction: this student has 11 missing fields. Missing values were imputed by the model pipeline."*
+  This ensures teachers make critical intervention decisions with full transparency regarding input completeness.
+
+### 3. Pre vs Post Intervention Impact Analysis
+- **How Impact is Calculated:**
+  - `before`: Average score (%) of all assessments dated strictly *before* the intervention `startDate`.
+  - `after`: Average score (%) of all assessments dated on or *after* the intervention `startDate`.
+  - `delta`: `after - before`
+  - `verdict`: `improved` (delta > +3.0), `declined` (delta < -3.0), `no clear change` (-3.0 ≤ delta ≤ +3.0).
+- **Edge Cases Handled Gracefully:**
+  - `planned`: Start date is in the future. Returns `verdict: "not started yet"` and `message: "Intervention is planned and has not started yet."` with null delta.
+  - `ongoing` (no assessments after start date): Returns `verdict: "insufficient data"`, alerting the teacher that post-start progress checks are required.
+  - `ongoing` (with pre & post assessments): Calculates preliminary delta and informs the teacher with `message: "Intervention is ongoing (preliminary impact)."`.
+
+### 4. Temporal Cutoff Analysis in Early Warning Systems (OULAD)
+- **Why Cutoffs Matter:** In semester-based courses, waiting until the end of the semester produces high accuracy but makes intervention useless. Early-warning systems evaluate how early predictions can be made reliably.
+- **ROC-AUC vs Recall Across Cutoff Days:**
+  - Day 0 (pre-course): Moderate discrimination (~0.65-0.70 ROC-AUC).
+  - Day 20-40: Significant rise in ROC-AUC (~0.80+) and Recall as students begin interacting with online modules and submitting early quizzes.
+  - Day 60+: Plateaus as final student trajectories become fixed.
+  - The UI plots this trajectory with Recharts to help academic advisors identify the **optimal intervention window**.
+
+### 5. Behavioral Divergence in Weekly Virtual Learning Environment (VLE) Engagement
+- Plotting weekly click averages by outcome (`Distinction`, `Pass`, `Fail`, `Withdrawn`) proves that disengagement appears as early as **Week 3**.
+- Students who eventually withdraw or fail drop significantly in interaction frequency weeks before formal assessment submissions, giving instructors an actionable early signal.
+
+### 6. Configurable Demo Accounts (`VITE_SHOW_DEMO_LOGINS`)
+- In local development and viva presentations, demo quick-fill buttons simplify evaluation.
+- For public cloud deployment, setting `VITE_SHOW_DEMO_LOGINS=false` in the production environment automatically conceals test credentials from the UI.
+
+

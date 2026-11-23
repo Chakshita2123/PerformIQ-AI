@@ -63,11 +63,20 @@ async function main() {
   let serverProcess = null;
 
   if (status.running && status.db === 'performiq_test') {
-    console.log('✅ Server already running and connected to: performiq_test\n');
+    console.log('✅ Server already running and verified connected to: performiq_test\n');
   } else {
     if (status.running) {
       console.log(`ℹ Server on port 5000 is connected to '${status.db}'.`);
-      console.log('  Restarting server in test mode (NODE_ENV=test) to connect to performiq_test...\n');
+      console.log('  Stopping existing server on port 5000 to launch test mode (NODE_ENV=test)...\n');
+      const { execSync } = require('child_process');
+      try {
+        if (process.platform === 'win32') {
+          execSync('powershell -Command "Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"', { stdio: 'ignore' });
+        } else {
+          execSync('fuser -k 5000/tcp 2>/dev/null || true', { stdio: 'ignore' });
+        }
+      } catch (e) {}
+      await new Promise((r) => setTimeout(r, 1500));
     } else {
       console.log('ℹ Starting Express server in test mode...\n');
     }

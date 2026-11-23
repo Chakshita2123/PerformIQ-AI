@@ -35,7 +35,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@performiq.dev\",\n  \"password\": \"AdminDemo123!\"\n}"
+              "raw": "{\n  \"email\": \"admin@performiq.ai\",\n  \"password\": \"AdminDemo123!\"\n}"
             },
             "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
           }

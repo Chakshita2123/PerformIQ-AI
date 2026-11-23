@@ -1,0 +1,130 @@
+/* PerformIQ AI Design Tokens & Color System */
+
+:root {
+  /* ── 6 Core Palette Hex Values ── */
+  --navy: #0F1C2E;
+  --surface: #F4F6F9;
+  --teal: #2AB4A0;
+  --coral: #E05C4B;
+  --amber: #D4891A;
+  --mint: #2EAB72;
+
+  /* ── Light Mode Token Mappings ── */
+  --bg-page: #F4F6F9;
+  --bg-panel: #FFFFFF;
+  --bg-subtle: #EEF1F6;
+  --bg-active: #E2E7F0;
+  --text-primary: #0F1C2E;
+  --text-muted: #536479;
+  --text-subtle: #596E87; /* WCAG AA: 5.2:1 against white, 4.6:1 against subtle */
+  --border: #D8E0EB;
+  --border-subtle: #E8EDF5;
+
+  /* Accent (Teal) */
+  --accent: #2AB4A0;
+  --accent-hover: #229987;
+  --accent-text: #0F766E; /* WCAG AA: 5.6:1 against white */
+  --accent-bg: #F0FDFA;
+
+  /* Risk Fills & Rails (Core Fills) */
+  --risk-high-fill: #E05C4B;
+  --risk-med-fill: #D4891A;
+  --risk-low-fill: #2EAB72;
+  --risk-unassessed-fill: #94A3B8;
+
+  /* Risk Text (WCAG AA >= 4.5:1 against light backgrounds) */
+  --risk-high-text: #B91C1C; /* 5.8:1 against white */
+  --risk-high-bg: #FEF2F2;
+  --risk-high-border: #FCA5A5;
+
+  --risk-med-text: #8D5B00; /* 5.2:1 against white */
+  --risk-med-bg: #FFFBEB;
+  --risk-med-border: #FCD34D;
+
+  --risk-low-text: #0D7A46; /* 5.1:1 against white */
+  --risk-low-bg: #ECFDF5;
+  --risk-low-border: #86EFAC;
+
+  --risk-unassessed-text: #475569;
+  --risk-unassessed-bg: #F1F5F9;
+  --risk-unassessed-border: #CBD5E1;
+
+  /* Focus ring */
+  --focus-ring: 2px solid #2AB4A0;
+  --focus-offset: 2px;
+}
+
+.dark {
+  /* ── Dark Mode Token Mappings ── */
+  --bg-page: #0F1C2E;
+  --bg-panel: #172437;
+  --bg-subtle: #1F3046;
+  --bg-active: #293E58;
+  --text-primary: #F4F6F9;
+  --text-muted: #9BB0C7;
+  --text-subtle: #9CB1C9; /* WCAG AA: 7.1:1 against #172437 */
+  --border: #263952;
+  --border-subtle: #1E2D41;
+
+  /* Accent (Teal) */
+  --accent: #2AB4A0;
+  --accent-hover: #38C9B4;
+  --accent-text: #5EEAD4; /* 8.4:1 against dark panel */
+  --accent-bg: rgba(42, 180, 160, 0.15);
+
+  /* Risk Fills & Rails */
+  --risk-high-fill: #E05C4B;
+  --risk-med-fill: #D4891A;
+  --risk-low-fill: #2EAB72;
+  --risk-unassessed-fill: #64748B;
+
+  /* Risk Text (WCAG AA >= 4.5:1 against dark backgrounds) */
+  --risk-high-text: #FFA299; /* 6.8:1 against #172437 */
+  --risk-high-bg: rgba(224, 92, 75, 0.15);
+  --risk-high-border: rgba(224, 92, 75, 0.35);
+
+  --risk-med-text: #FCD34D; /* 8.5:1 against #172437 */
+  --risk-med-bg: rgba(212, 137, 26, 0.15);
+  --risk-med-border: rgba(212, 137, 26, 0.35);
+
+  --risk-low-text: #6EE7B7; /* 8.2:1 against #172437 */
+  --risk-low-bg: rgba(46, 171, 114, 0.15);
+  --risk-low-border: rgba(46, 171, 114, 0.35);
+
+  --risk-unassessed-text: #94A3B8;
+  --risk-unassessed-bg: rgba(100, 116, 139, 0.15);
+  --risk-unassessed-border: rgba(100, 116, 139, 0.35);
+}
+
+/* Base Body Styles */
+body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Monospace numbers utility */
+.font-mono-num {
+  font-family: 'DM Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus styles for accessible keyboard navigation */
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -391,6 +391,23 @@ async function run() {
   const t2HasT1Sleep = t2Reasons.some(r => r.includes('Sleep is under 6 hours'));
   check('Teacher 2 recommendations DO NOT contain Teacher 1 student reasons', !t2HasT1Sleep, t2Reasons);
 
+  console.log('\n【22b】 GET /api/dashboard/attention — lowest predicted score students with reasons & teacher scoping');
+  const att1 = await request('GET', '/api/dashboard/attention', null, token);
+  check('200 OK', att1.status === 200, att1.status);
+  check('returns array', Array.isArray(att1.body.data), att1.body.data);
+  check('length <= 5', att1.body.data?.length <= 5, att1.body.data?.length);
+  check('has required fields', att1.body.data?.every(s => s._id && s.studentId && s.name && typeof s.latestPredictedScore === 'number' && s.latestRiskLevel && Array.isArray(s.reasons) && Array.isArray(s.reasonLabels)), att1.body.data);
+  check('reasons has max 2 items', att1.body.data?.every(s => s.reasons.length <= 2 && s.reasonLabels.length <= 2), att1.body.data);
+
+  // Check teacher scoping: Teacher 2 sees only their own student in attention list
+  const att2 = await request('GET', '/api/dashboard/attention', null, tokenT2);
+  check('Teacher 2 attention 200 OK', att2.status === 200, att2.status);
+  check('Teacher 2 sees only their students', att2.body.data?.every(s => s._id === studentIdT2), att2.body.data);
+
+  // Check admin can query attention endpoint
+  const attAdmin = await request('GET', '/api/dashboard/attention', null, adminToken);
+  check('Admin attention 200 OK', attAdmin.status === 200, attAdmin.status);
+
   console.log('\n【23】 POST /api/students/:id/predict — student with device_availability = "None"');
   const stuNoneRes = await request('POST', '/api/students', {
     studentId: `STU_P2_NONE_${ts}`,

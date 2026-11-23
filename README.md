@@ -149,10 +149,10 @@ npm run dev                   # app on http://localhost:5173
 
 | Role | Email | Password |
 |------|-------|----------|
-| Admin | `admin@performiq.dev` | `AdminDemo123!` |
-| Teacher 1 | `teacher1@performiq.dev` | `TeacherDemo123!` |
-| Teacher 2 | `teacher2@performiq.dev` | `TeacherDemo123!` |
-| Teacher 3 | `teacher3@performiq.dev` | `TeacherDemo123!` |
+| Admin | `admin@performiq.ai` | `AdminDemo123!` |
+| Teacher 1 | `teacher1@performiq.ai` | `TeacherDemo123!` |
+| Teacher 2 | `teacher2@performiq.ai` | `TeacherDemo123!` |
+| Teacher 3 | `teacher3@performiq.ai` | `TeacherDemo123!` |
 
 > These are **demo-only** credentials. Change all passwords before any public deployment.
 
@@ -193,7 +193,7 @@ The FastAPI service takes no `.env` file. All options are CLI flags passed to `u
 cd backend
 npm test
 
-# Expected: 147 tests passing (41 Phase-1 + 106 Phase-2/3)
+# Expected: 155 tests passing (41 Phase-1 + 114 Phase-2/3)
 ```
 
 Tests are isolated to the `performiq_test` database (set via `MONGO_URI_TEST`).  
@@ -211,9 +211,17 @@ A ready-to-import Postman collection is at [`docs/PerformIQ.postman_collection.j
 
 ## Screenshots
 
-> Add screenshots to `docs/screenshots/` — see [`docs/screenshots/SCREENSHOTS.md`](docs/screenshots/SCREENSHOTS.md) for the full list.
+> Add screenshots to `docs/screenshots/` — see [`docs/screenshots/SCREENSHOTS.md`](docs/screenshots/SCREENSHOTS.md) for instructions and suggested views:
+> - `01-login.png` — Split-screen login with seeded risk distribution & OULAD ROC-AUC benchmark
+> - `02-dashboard.png` — Teacher cockpit with "Needs attention today" severity rail & class health bar
+> - `03-students-list.png` — Student directory with accessible risk badges & server-side pagination
+> - `04-student-profile.png` — Score gauge (50/60 bands), "Why this risk" chips & combined impact timeline
+> - `05-add-student.png` — Multi-section student enrollment form
+> - `06-interventions.png` — Status-filtered intervention directory & impact evaluation modal
+> - `07-early-warning.png` — OULAD temporal ROC-AUC cutoff chart & telemetry
 
 <!-- Uncomment after adding screenshots:
+![Login](docs/screenshots/01-login.png)
 ![Dashboard](docs/screenshots/02-dashboard.png)
 ![Student profile](docs/screenshots/04-student-profile.png)
 ![Early warning](docs/screenshots/07-early-warning.png)

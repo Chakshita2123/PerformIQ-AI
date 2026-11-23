@@ -16,8 +16,8 @@ const EarlyWarningPage   = lazy(() => import('./pages/EarlyWarningPage'));
 /** Full-screen spinner shown while a lazy page chunk is loading. */
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+    <div className="flex items-center justify-center min-h-screen bg-page">
+      <div className="w-9 h-9 border-3 border-teal border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }

@@ -17,7 +17,7 @@
 
 **Request body:**
 ```json
-{ "email": "admin@performiq.dev", "password": "AdminDemo123!" }
+{ "email": "admin@performiq.ai", "password": "AdminDemo123!" }
 ```
 
 **Response `200`:**

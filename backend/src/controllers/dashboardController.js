@@ -1,6 +1,7 @@
 const Student = require('../models/Student');
 const Intervention = require('../models/Intervention');
 const Prediction = require('../models/Prediction');
+const { getRecommendationLabel } = require('../utils/recommendations');
 
 /**
  * GET /api/dashboard/summary
@@ -255,4 +256,76 @@ const getDashboardSummary = async (req, res, next) => {
   }
 };
 
-module.exports = { getDashboardSummary };
+/**
+ * GET /api/dashboard/attention
+ *
+ * Returns up to 5 students with the lowest latestPredictedScore
+ * (sorted ascending: score 0 -> 100), including top 2 reasons from each student's
+ * latest prediction.
+ *
+ * Teacher scoping applies:
+ *   - Teachers only see their assigned students.
+ *   - Admins see across all students.
+ */
+const getDashboardAttention = async (req, res, next) => {
+  try {
+    const studentMatch = {
+      latestPredictedScore: { $ne: null },
+      ...(req.user.role === 'teacher' ? { assignedTeacher: req.user._id } : {}),
+    };
+
+    const students = await Student.find(studentMatch)
+      .sort({ latestPredictedScore: 1, createdAt: -1 })
+      .limit(5)
+      .select('_id studentId name latestPredictedScore latestRiskLevel')
+      .lean();
+
+    if (students.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const studentIds = students.map((s) => s._id);
+
+    // Fetch the latest prediction for each of these students
+    const predictions = await Prediction.aggregate([
+      { $match: { student: { $in: studentIds } } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: '$student',
+          recommendations: { $first: '$recommendations' },
+        },
+      },
+    ]);
+
+    const predMap = new Map();
+    predictions.forEach((p) => {
+      predMap.set(p._id.toString(), p.recommendations || []);
+    });
+
+    const data = students.map((s) => {
+      const studentRecs = (predMap.get(s._id.toString()) || []).slice(0, 2);
+      return {
+        _id: s._id,
+        studentId: s.studentId,
+        name: s.name,
+        latestPredictedScore: s.latestPredictedScore,
+        latestRiskLevel: s.latestRiskLevel,
+        reasons: studentRecs,
+        reasonLabels: studentRecs.map(getRecommendationLabel),
+      };
+    });
+
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  getDashboardSummary,
+  getDashboardAttention,
+};

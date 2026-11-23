@@ -1,26 +1,28 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ThemeToggle from './ThemeToggle';
 import {
   LayoutDashboard,
   Users,
   UserPlus,
   ClipboardList,
-  LogOut,
   ShieldAlert,
   GraduationCap,
+  LogOut,
   Menu,
   X,
-  UserCheck,
 } from 'lucide-react';
 
 /**
- * Main application layout featuring a responsive sidebar, sticky topbar,
- * active route indicators, user details, and logout functionality.
+ * Layout
+ * Polished, distinctive layout with quiet chrome, dark/light theme toggle,
+ * responsive mobile menu, and clean header without duplicate scope text.
  */
 export default function Layout() {
   const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
@@ -31,143 +33,174 @@ export default function Layout() {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Students', path: '/students', icon: Users },
-    { name: 'Enroll Student', path: '/students/new', icon: UserPlus },
+    { name: 'Enroll student', path: '/students/new', icon: UserPlus },
     { name: 'Interventions', path: '/interventions', icon: ClipboardList },
-    { name: 'Early Warning', path: '/early-warning', icon: ShieldAlert },
+    { name: 'Early warning', path: '/early-warning', icon: ShieldAlert },
   ];
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
-      {/* ── Mobile Topbar ──────────────────────────────────────────────────── */}
-      <div className="md:hidden bg-slate-900 text-white flex items-center justify-between p-4 sticky top-0 z-30 shadow-md">
-        <div className="flex items-center gap-2">
-          <div className="bg-indigo-600 p-1.5 rounded-lg">
-            <GraduationCap className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-bold tracking-tight text-lg">PerformIQ AI</span>
-        </div>
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-md"
-        >
-          {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
-      </div>
+  // Strict single-active matching logic:
+  // /students/new activates ONLY "Enroll student".
+  // /students and /students/:id (except /students/new) activates ONLY "Students".
+  const isItemActive = (itemPath) => {
+    if (itemPath === '/') {
+      return location.pathname === '/';
+    }
+    if (itemPath === '/students/new') {
+      return location.pathname === '/students/new';
+    }
+    if (itemPath === '/students') {
+      return (
+        location.pathname === '/students' ||
+        (location.pathname.startsWith('/students/') && location.pathname !== '/students/new')
+      );
+    }
+    return location.pathname.startsWith(itemPath);
+  };
 
-      {/* ── Sidebar (Desktop & Mobile Drawer) ──────────────────────────────── */}
+  return (
+    <div className="min-h-screen bg-page text-text-primary flex flex-col md:flex-row transition-colors">
+      {/* ── Mobile Top Header ────────────────────────────────────────────── */}
+      <header className="md:hidden bg-panel border-b border-border flex items-center justify-between px-4 py-3 sticky top-0 z-30">
+        <div className="flex items-center gap-2.5">
+          <div className="bg-teal p-1.5 rounded-lg text-navy">
+            <GraduationCap className="w-5 h-5" />
+          </div>
+          <span className="font-bold tracking-tight text-base text-text-primary">
+            PerformIQ AI
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle navigation menu"
+            className="p-2 rounded-lg border border-border text-text-muted hover:text-text-primary hover:bg-subtle focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+      </header>
+
+      {/* ── Sidebar (Desktop & Mobile Drawer) ────────────────────────────── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-100 flex flex-col transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-panel border-r border-border flex flex-col transition-transform duration-200 ease-in-out md:static md:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center gap-3">
-          <div className="bg-indigo-600 p-2 rounded-xl shadow-md shadow-indigo-500/20">
-            <GraduationCap className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="font-bold text-lg tracking-tight leading-none text-white">PerformIQ AI</h1>
-            <p className="text-xs text-indigo-400 font-medium mt-1">Student Early-Intervention</p>
+        <div className="p-5 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-teal p-2 rounded-xl text-navy">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="font-bold text-base tracking-tight leading-none text-text-primary">
+                PerformIQ AI
+              </h1>
+              <p className="text-xs text-text-muted mt-1">Student early intervention</p>
+            </div>
           </div>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-          <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Main Menu
+        {/* Navigation Menu */}
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          <div className="px-3 pt-2 pb-1.5 text-xs font-medium text-text-subtle">
+            Navigation
           </div>
           {navItems.map((item) => {
             const Icon = item.icon;
+            const active = isItemActive(item.path);
             return (
-              <NavLink
+              <Link
                 key={item.path}
                 to={item.path}
-                end={item.path === '/'}
                 onClick={() => setMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
-                  }`
-                }
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-subtle text-accent-text border border-border font-semibold'
+                    : 'text-text-muted hover:text-text-primary hover:bg-subtle'
+                }`}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
                 <span>{item.name}</span>
-              </NavLink>
+              </Link>
             );
           })}
         </nav>
 
-        {/* User Card & Logout */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-400 font-semibold text-sm">
+        {/* Mobile Drawer Footer User Profile */}
+        <div className="md:hidden p-3.5 border-t border-border bg-subtle/40 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-panel border border-border flex items-center justify-center text-accent-text font-bold text-xs flex-shrink-0">
               {user?.name ? user.name[0].toUpperCase() : 'U'}
             </div>
-            <div className="overflow-hidden flex-1">
-              <p className="text-sm font-medium text-white truncate">{user?.name || 'User'}</p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span
-                  className={`inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                    isAdmin
-                      ? 'bg-purple-950/80 text-purple-300 border border-purple-800'
-                      : 'bg-indigo-950/80 text-indigo-300 border border-indigo-800'
-                  }`}
-                >
-                  {user?.role || 'Teacher'}
-                </span>
-              </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-text-primary truncate">{user?.name || 'User'}</p>
+              <span className="text-[11px] text-text-muted capitalize">
+                {user?.role || 'Teacher'}
+              </span>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-medium text-slate-400 hover:text-rose-300 hover:bg-rose-950/30 border border-slate-800 hover:border-rose-900/50 transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg text-xs font-medium text-text-muted hover:text-risk-high-text hover:bg-risk-high-bg border border-border transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
+            <span>Sign out</span>
           </button>
         </div>
       </aside>
 
-      {/* Backdrop for mobile drawer */}
+      {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
           onClick={() => setMobileMenuOpen(false)}
-          className="fixed inset-0 bg-slate-950/60 z-30 md:hidden backdrop-blur-xs"
+          className="fixed inset-0 bg-navy/60 z-30 md:hidden"
+          aria-hidden="true"
         />
       )}
 
-      {/* ── Main Content Area ──────────────────────────────────────────────── */}
+      {/* ── Main Content Area ────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Desktop Header */}
-        <header className="hidden md:flex items-center justify-between px-8 py-4 bg-white border-b border-slate-200">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-800">
-              Welcome back, <span className="text-indigo-600">{user?.name}</span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              {isAdmin
-                ? 'System Administrator mode (Full access across all teachers and students)'
-                : 'Teacher mode (Scoped view of your assigned students)'}
-            </p>
-          </div>
+        {/* Desktop Sticky Header: Clean, quiet, with ThemeToggle & User Profile */}
+        <header className="hidden md:flex items-center justify-between px-8 py-3 bg-panel border-b border-border sticky top-0 z-20">
+          <div />
 
-          <div className="flex items-center gap-3">
-            <span
-              className={`text-xs font-medium px-3 py-1 rounded-full border ${
-                isAdmin
-                  ? 'bg-purple-50 text-purple-700 border-purple-200'
-                  : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-              }`}
+          {/* User Controls & Profile */}
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <div className="h-4 w-px bg-border" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-full bg-subtle border border-border flex items-center justify-center text-accent-text font-bold text-xs flex-shrink-0">
+                {user?.name ? user.name[0].toUpperCase() : 'U'}
+              </div>
+              <div className="text-left">
+                <span className="text-xs font-semibold text-text-primary block leading-tight">
+                  {user?.name || 'User'}
+                </span>
+                <span className="text-[10px] text-text-muted capitalize block leading-tight">
+                  {user?.role || 'Teacher'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-text-muted hover:text-risk-high-text hover:bg-risk-high-bg border border-border transition-colors focus-visible:ring-2 focus-visible:ring-accent"
+              title="Sign out of PerformIQ AI"
             >
-              Role: <strong className="capitalize">{user?.role}</strong>
-            </span>
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign out</span>
+            </button>
           </div>
         </header>
 
-        {/* Page Content */}
+        {/* Page Content Viewport */}
         <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>

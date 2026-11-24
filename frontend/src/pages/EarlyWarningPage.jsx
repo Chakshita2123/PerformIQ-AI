@@ -5,6 +5,11 @@ import Skeleton from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import { useChartTheme } from '../context/ThemeContext';
 import {
+  SCORE_PREDICTOR_METRICS,
+  DATA_PROVENANCE,
+  WORKFLOW_LOOP_REMINDER,
+} from '../constants/modelMetrics';
+import {
   ShieldAlert,
   Info,
   TrendingUp,
@@ -13,6 +18,9 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
+  Database,
+  Repeat,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -130,6 +138,7 @@ export default function EarlyWarningPage() {
     const item = cutoffData[index];
     if (!item) return null;
     if ([40, 60, 180].includes(item.cutoff_day)) {
+      const val = typeof value === 'number' ? value : item.ROC_AUC;
       return (
         <text
           x={x}
@@ -140,7 +149,7 @@ export default function EarlyWarningPage() {
           fontWeight="bold"
           fontFamily="DM Mono"
         >
-          {typeof value === 'number' ? value.toFixed(2) : value}
+          {typeof val === 'number' ? val.toFixed(2) : val}
         </text>
       );
     }
@@ -173,15 +182,104 @@ export default function EarlyWarningPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-text-primary">
-            Early-warning system & OULAD benchmarks
+            About the model & early warning
           </h1>
           <p className="text-xs text-text-muted mt-0.5">
-            Module 3: Pre-computed early intervention telemetry trained on Open University Learning Analytics data
+            Module 1 score predictor specifications and Module 3 early-intervention benchmarks trained on Open University Learning Analytics data
           </p>
         </div>
       </div>
 
-      {/* ── Context / Information Note (Plain-language requirement 12) ──────── */}
+      {/* ── Section: Module 1 Score Predictor, Provenance & Workflow Loop ─── */}
+      <section className="p-5 bg-panel border border-border rounded-xl space-y-5">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="w-4 h-4 text-teal" />
+            <h2 className="text-sm font-bold text-text-primary tracking-tight">
+              Module 1 — Live Exam Score Predictor
+            </h2>
+          </div>
+          <p className="text-xs text-text-muted leading-relaxed">
+            The score prediction engine predicts upcoming student exam scores (0–100) using a{' '}
+            <span className="font-medium text-text-primary">{SCORE_PREDICTOR_METRICS.algorithm}</span>{' '}
+            trained across {SCORE_PREDICTOR_METRICS.totalFeatures} student-lifestyle, academic, and socioeconomic features.
+          </p>
+        </div>
+
+        {/* Feature Groups */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {SCORE_PREDICTOR_METRICS.featureGroups.map((group) => (
+            <div
+              key={group.name}
+              className="p-3 bg-subtle/50 rounded-lg border border-border-subtle space-y-1"
+            >
+              <span className="text-xs font-semibold text-text-primary block">{group.name}</span>
+              <p className="text-[11px] text-text-muted leading-relaxed">{group.details}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Evaluation Metrics */}
+        <div className="p-3 bg-subtle/60 rounded-lg border border-border-subtle flex flex-wrap items-center justify-between gap-3 text-xs">
+          <span className="text-text-muted">
+            Evaluation results on held-out test set ({SCORE_PREDICTOR_METRICS.testSplit}):
+          </span>
+          <div className="flex items-center gap-5">
+            <span className="text-text-primary">
+              Mean Absolute Error (MAE):{' '}
+              <strong className="font-mono-num text-teal font-bold">{SCORE_PREDICTOR_METRICS.mae} marks</strong>
+            </span>
+            <span className="text-text-primary">
+              Coefficient of Determination (R²):{' '}
+              <strong className="font-mono-num text-teal font-bold">{SCORE_PREDICTOR_METRICS.r2}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Real vs Simulated Data List */}
+        <div className="pt-2 border-t border-border-subtle space-y-2">
+          <h3 className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
+            <Database className="w-3.5 h-3.5 text-text-subtle" />
+            Real vs simulated data
+          </h3>
+          <ul className="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+            {DATA_PROVENANCE.map((item) => (
+              <li
+                key={item.name}
+                className="p-2.5 bg-subtle/40 rounded-lg border border-border-subtle space-y-1"
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-semibold text-text-primary text-[11px]">{item.name}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                      item.isReal
+                        ? 'bg-risk-low-bg text-risk-low-text border border-risk-low-border'
+                        : 'bg-subtle text-text-subtle border border-border'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                </div>
+                <p className="text-[11px] text-text-muted leading-normal">{item.description}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Continuous Improvement Loop Reminder */}
+        <div className="p-2.5 bg-teal/10 border border-teal/20 rounded-lg text-xs text-text-primary flex items-center gap-2">
+          <Repeat className="w-3.5 h-3.5 text-teal flex-shrink-0" />
+          <p className="leading-relaxed">
+            <strong className="font-semibold text-teal">Continuous Improvement Loop:</strong>{' '}
+            {WORKFLOW_LOOP_REMINDER}
+          </p>
+        </div>
+      </section>
+
+      {/* ── Divider ─────────────────────────────────────────────────────────── */}
+      <hr className="border-border my-6" />
+
+      {/* ── OULAD Study Section ─────────────────────────────────────────────── */}
       <div className="p-4 bg-subtle/70 border border-border rounded-xl text-xs text-text-muted flex items-start gap-3">
         <Info className="w-4 h-4 text-teal mt-0.5 flex-shrink-0" />
         <div className="space-y-1">
@@ -243,7 +341,7 @@ export default function EarlyWarningPage() {
                       labelFormatter={(l) => `Observation cutoff: Day ${l}`}
                     />
 
-                    {/* Random Guess Baseline: label placed inside top-right so it never overlaps x-axis ticks */}
+                    {/* Random Guess Baseline: left end above dashed line */}
                     <ReferenceLine
                       y={0.5}
                       stroke={chartTheme.text}
@@ -252,11 +350,11 @@ export default function EarlyWarningPage() {
                         value: 'Random (0.50)',
                         fill: chartTheme.text,
                         fontSize: 10,
-                        position: 'insideTopRight',
+                        position: 'insideTopLeft',
                       }}
                     />
 
-                    {/* ROC-AUC Curve with direct value labels at Day 40, Day 60, Day 180 */}
+                    {/* ROC-AUC Curve with dots on all points and value labels on days 40, 60, 180 */}
                     <Line
                       type="monotone"
                       dataKey="ROC_AUC"
@@ -271,7 +369,7 @@ export default function EarlyWarningPage() {
                             key={`auc-dot-${index}`}
                             cx={cx}
                             cy={cy}
-                            r={isKey ? 5 : 3}
+                            r={isKey ? 5 : 3.5}
                             fill={chartTheme.teal}
                             stroke={chartTheme.tooltipBg}
                             strokeWidth={isKey ? 2 : 1}
@@ -279,7 +377,7 @@ export default function EarlyWarningPage() {
                         );
                       }}
                     >
-                      <LabelList content={renderKeyCutoffLabel} />
+                      <LabelList dataKey="ROC_AUC" content={renderKeyCutoffLabel} />
                     </Line>
                   </LineChart>
                 </ResponsiveContainer>
@@ -391,13 +489,13 @@ export default function EarlyWarningPage() {
             )}
           </div>
 
-          {/* Interactive Legend with distinguishable markers */}
+          {/* Interactive Legend with plain names and direct line-end labels */}
           <div className="pt-3 mt-3 border-t border-border-subtle flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted">
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#0F766E]" /> Distinction (deep teal)
+              <span className="w-2.5 h-2.5 rounded-full bg-[#0F766E]" /> Distinction
             </span>
             <span className="flex items-center gap-1.5 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#2AB4A0]" /> Pass (light dashed teal)
+              <span className="w-2.5 h-2.5 rounded-full bg-[#2AB4A0]" /> Pass
             </span>
             <span className="flex items-center gap-1.5 font-medium">
               <span className="w-2.5 h-2.5 rounded-full bg-amber" /> Fail

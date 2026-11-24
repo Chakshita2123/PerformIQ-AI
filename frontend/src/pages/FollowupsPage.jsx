@@ -255,9 +255,16 @@ export default function FollowupsPage() {
                           {student.studentId}
                         </span>
                       </div>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border capitalize ${verdictClass}`}>
-                        {item.verdict}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border capitalize ${verdictClass}`}>
+                          {item.verdict}
+                        </span>
+                        {item.assessmentsAfter === 1 && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-subtle border border-border text-text-muted">
+                            Preliminary
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2 text-xs text-text-muted flex-wrap">
@@ -285,14 +292,14 @@ export default function FollowupsPage() {
                     ) : (
                       <div className="p-2.5 bg-subtle/60 rounded-lg border border-border-subtle flex items-center justify-between text-xs">
                         <div>
-                          <span className="text-[11px] text-text-subtle block">Pre-launch</span>
+                          <span className="text-[11px] text-text-subtle block">Before</span>
                           <span className="font-mono-num font-semibold text-text-primary">
                             {typeof item.beforeAvg === 'number' ? `${item.beforeAvg.toFixed(1)} / 100` : '—'}
                           </span>
                         </div>
                         <ArrowRight className="w-3.5 h-3.5 text-text-subtle" />
                         <div>
-                          <span className="text-[11px] text-text-subtle block">Post-launch</span>
+                          <span className="text-[11px] text-text-subtle block">After</span>
                           <span className="font-mono-num font-semibold text-text-primary">
                             {typeof item.afterAvg === 'number' ? `${item.afterAvg.toFixed(1)} / 100` : '—'}
                           </span>
@@ -571,7 +578,7 @@ export default function FollowupsPage() {
                 {/* Score Summary Snapshot */}
                 <div className="p-3 bg-subtle/70 rounded-lg border border-border flex items-center justify-around text-center">
                   <div>
-                    <span className="text-[11px] text-text-subtle block">Pre-launch</span>
+                    <span className="text-[11px] text-text-subtle block">Before</span>
                     <span className="text-sm font-bold font-mono-num text-text-primary">
                       {typeof concludingIntervention.beforeAvg === 'number'
                         ? `${concludingIntervention.beforeAvg.toFixed(1)} / 100`
@@ -579,7 +586,7 @@ export default function FollowupsPage() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-text-subtle block">Post-launch</span>
+                    <span className="text-[11px] text-text-subtle block">After</span>
                     <span className="text-sm font-bold font-mono-num text-text-primary">
                       {typeof concludingIntervention.afterAvg === 'number'
                         ? `${concludingIntervention.afterAvg.toFixed(1)} / 100`

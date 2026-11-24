@@ -37,11 +37,13 @@ export default function StudentsPage() {
     setError('');
     try {
       const [field, dir] = sortField.split(':');
+      const sortDirection = dir || 'asc';
       const params = {
         page: targetPage,
         limit: pagination.limit,
         sortBy: field,
-        sortOrder: dir || 'asc',
+        sortOrder: sortDirection,
+        order: sortDirection,
       };
 
       if (search.trim()) {
@@ -197,7 +199,7 @@ export default function StudentsPage() {
                         : 'N/A'}
                     </td>
                     <td className="py-3 px-4 font-mono-num text-text-muted">
-                      {s.attendance_percentage != null ? `${s.attendance_percentage}%` : 'N/A'}
+                      {s.attendance_percentage != null ? `${s.attendance_percentage}%` : 'Not recorded'}
                     </td>
                     <td className="py-3 px-4 font-mono-num text-text-muted">
                       {s.study_hours_per_day != null ? `${s.study_hours_per_day}h/d` : 'N/A'}

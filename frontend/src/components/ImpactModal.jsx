@@ -138,10 +138,10 @@ export default function ImpactModal({ intervention, onClose }) {
               )}
             </div>
 
-            {/* Pre vs Post Metric Cards */}
+            {/* Before vs After Metric Cards */}
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="p-3 bg-panel border border-border rounded-lg">
-                <span className="text-[11px] text-text-subtle block">Pre-launch avg</span>
+                <span className="text-[11px] text-text-subtle block">Before avg</span>
                 <span className="text-lg font-bold font-mono-num text-text-primary">
                   {typeof impactData?.beforeAvg === 'number'
                     ? impactData.beforeAvg.toFixed(1)
@@ -153,7 +153,7 @@ export default function ImpactModal({ intervention, onClose }) {
               </div>
 
               <div className="p-3 bg-panel border border-border rounded-lg">
-                <span className="text-[11px] text-text-subtle block">Post-launch avg</span>
+                <span className="text-[11px] text-text-subtle block">After avg</span>
                 <span className="text-lg font-bold font-mono-num text-text-primary">
                   {typeof impactData?.afterAvg === 'number'
                     ? impactData.afterAvg.toFixed(1)

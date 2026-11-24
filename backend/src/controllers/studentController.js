@@ -42,9 +42,16 @@ const getStudents = async (req, res, next) => {
       filter.$text = { $search: req.query.search };
     }
 
-    // Sort
-    const sortBy = req.query.sortBy || 'createdAt';
-    const order = req.query.order === 'asc' ? 1 : -1;
+    // Sort — default: lowest predicted score first (latestPredictedScore: asc)
+    const sortBy = req.query.sortBy || 'latestPredictedScore';
+    const sortOrderParam = (
+      req.query.order ||
+      req.query.sortOrder ||
+      (sortBy === 'latestPredictedScore' ? 'asc' : 'desc')
+    )
+      .toString()
+      .toLowerCase();
+    const order = sortOrderParam === 'desc' ? -1 : 1;
     const sort = { [sortBy]: order };
 
     const [students, total] = await Promise.all([

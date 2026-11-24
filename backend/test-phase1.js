@@ -167,6 +167,43 @@ async function run() {
   check('has students array', Array.isArray(ls.body.data?.students), ls.body.data);
   check('has pagination',     !!ls.body.data?.pagination?.total,     ls.body.data?.pagination);
 
+  // ── 14b. Student sorting: Low to High (default) vs High to Low ──────────────
+  console.log('\n【14b】 GET /api/students — sorting order for both directions');
+  const STU_ID_2 = `STU_TEST_SORT_${ts}`;
+  await request('POST', '/api/students', {
+    studentId: STU_ID_2,
+    name: 'High Score Student',
+    latestPredictedScore: 92.5,
+  }, token);
+
+  // Update original student to have a lower predicted score
+  await request('PUT', `/api/students/${studentId}`, {
+    latestPredictedScore: 35.0,
+  }, token);
+
+  // 1. Default order (no sort params) should be lowest predicted score first
+  const defaultSortRes = await request('GET', '/api/students', null, token);
+  const defStudents = defaultSortRes.body.data?.students || [];
+  const sLow = defStudents.find(s => s.studentId === STU_ID);
+  const sHigh = defStudents.find(s => s.studentId === STU_ID_2);
+  const defIdxLow = defStudents.indexOf(sLow);
+  const defIdxHigh = defStudents.indexOf(sHigh);
+  check('default sort is lowest score first', defIdxLow !== -1 && defIdxHigh !== -1 && defIdxLow < defIdxHigh, { defIdxLow, defIdxHigh });
+
+  // 2. Explicit ascending order (Low to High) via sortOrder=asc
+  const ascRes = await request('GET', '/api/students?sortBy=latestPredictedScore&sortOrder=asc', null, token);
+  const ascStudents = ascRes.body.data?.students || [];
+  const ascIdxLow = ascStudents.indexOf(ascStudents.find(s => s.studentId === STU_ID));
+  const ascIdxHigh = ascStudents.indexOf(ascStudents.find(s => s.studentId === STU_ID_2));
+  check('sortOrder=asc returns lowest score first', ascIdxLow !== -1 && ascIdxHigh !== -1 && ascIdxLow < ascIdxHigh, { ascIdxLow, ascIdxHigh });
+
+  // 3. Explicit descending order (High to Low) via sortOrder=desc
+  const descRes = await request('GET', '/api/students?sortBy=latestPredictedScore&sortOrder=desc', null, token);
+  const descStudents = descRes.body.data?.students || [];
+  const descIdxLow = descStudents.indexOf(descStudents.find(s => s.studentId === STU_ID));
+  const descIdxHigh = descStudents.indexOf(descStudents.find(s => s.studentId === STU_ID_2));
+  check('sortOrder=desc returns highest score first', descIdxLow !== -1 && descIdxHigh !== -1 && descIdxHigh < descIdxLow, { descIdxLow, descIdxHigh });
+
   // ── 15. Get one student ────────────────────────────────────────────────────
   console.log('\n【15】 GET /api/students/:id');
   if (!studentId) { console.log('  ⚠ Skipped — no studentId (create failed)'); }
@@ -234,7 +271,11 @@ async function run() {
     await mongoose.connect(uri);
     const db = mongoose.connection.db;
     await db.collection('students').deleteMany({
-      $or: [{ studentId: STU_ID }, { name: 'Bob Smith' }],
+      $or: [
+        { studentId: { $regex: '^STU_TEST_' } },
+        { name: 'Bob Smith' },
+        { name: 'High Score Student' },
+      ],
     });
     await db.collection('users').deleteMany({
       email: { $in: [EMAIL_ALICE, EMAIL_HACK] },
